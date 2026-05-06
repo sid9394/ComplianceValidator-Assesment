@@ -275,18 +275,14 @@ Additional policy rules from `company_policy.yaml` that apply beyond the basic l
 
 ## Design Decisions
 
-### Why I didn't add an LLM to every tool
+### Why most tools don't use an LLM
 
-I thought about this for a while — like what if the agent gets confused on an edge case, should I just throw an LLM at the problem to be safe? But the more I looked at each tool the more I realised that for most of them an LLM would actually make things worse, not better.
+The agent in `crew.py` already uses an LLM to orchestrate tool calls and synthesize results — adding LLMs inside individual tools would just pay for the same reasoning twice.
 
-So here's my thinking for each group:
+For each tool group, there's a concrete reason to keep it deterministic:
 
-**C1 and C2 (arithmetic)** — LLMs are actually pretty bad at maths. Like if I ask it to check whether `quantity × rate = amount` it might just get it wrong. The whole point of these checks is that they're exact, so I just do the calculation myself with a ₹1 tolerance for rounding and that's it. No ambiguity, no need for an LLM.
+- **C1, C2 (arithmetic)** — Why ask an LLM if 2+2=4? These are exact calculations with a single right answer. LLMs are unreliable at precise math anyway, so a simple ₹1 tolerance check is just computed directly.
+- **E3, A2 (vendor lookup, duplicate detection)** — The LLM has no access to `vendor_registry.json` or processed invoice history. It would hallucinate.
+- **A1, B1, B7, E1 (regex and rules)** — GST/TDS rules like GSTIN format and CGST/IGST splits are exact and well-defined. An LLM risks confident wrong answers on domain-specific edge cases; a broken rule is easier to fix than a nondeterministic one.
 
-**E3 and A2 (vendor lookup and duplicate detection)** — The LLM doesn't have access to `vendor_registry.json` or the list of invoices I've already processed. It literally cannot know if a vendor is approved or if an invoice is a duplicate — that information only exists in the data. If I asked the LLM it would just make something up.
-
-**A1, B1, B7, E1 (regex and rules)** — These are all based on specific Indian GST/TDS rules that are pretty clearly defined. Like the GSTIN format is exactly 15 characters in a specific pattern, the CGST/SGST vs IGST split depends on the state code, etc. An LLM might actually give a confident wrong answer here because this is quite specific domain stuff. If I hit an edge case I'd rather just fix the rule than rely on the LLM guessing.
-
-The other thing I realised is that the agent in `crew.py` is already using an LLM to decide which tools to call and how to put the results together. So the "thinking" layer is already there at the top level — I don't need to also put it inside each individual tool, that would just be paying for extra API calls to do the same thing twice.
-
-The only checks where I actually used an LLM are D1 and D2 (TDS) because the rules there are genuinely complicated and depend on interpreting what kind of service the vendor is providing from a text description — that's the kind of thing you actually need an LLM for. Everything else has a clear right answer that I can just compute.
+**D1 and D2 (TDS)** are the exception — classifying a vendor's service from a text description genuinely requires language understanding, so that's where the LLM earns its cost.
