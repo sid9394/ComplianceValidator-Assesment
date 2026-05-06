@@ -15,10 +15,10 @@ load_dotenv()  # Must run before any os.getenv() calls below
 # ============================================================
 
 # project root - everything else is relative to this
-PROJECT_ROOT = Path(__file__).parent
+PROJECT_ROOT = Path(__file__).parent.parent
 
 # where all the reference data files are
-DATA_DIR = Path("D:/Projects/Agentic Army Datamatics Eval Project/ComplianceValidator/data")
+DATA_DIR = PROJECT_ROOT / "data"
 
 # where the output reports get written
 REPORTS_DIR = PROJECT_ROOT / "reports"
