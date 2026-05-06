@@ -1,0 +1,56 @@
+{
+  "candidate_name": "Sidharth Menon",
+  "total_checks_implemented": 10,
+  "checks": {
+    "A1": {
+      "implemented": true,
+      "priority": "HIGH",
+      "notes": "Regex pattern match against Indian invoice number conventions (e.g. TS/MH/2024/001234). Multiple patterns cover B2B, export, and composite formats."
+    },
+    "A2": {
+      "implemented": true,
+      "priority": "HIGH",
+      "notes": "Cross-invoice duplicate detection within a batch using a GSTIN::invoice_number::amount::date compound key. Seen-invoices list grows per invoice and is passed to the crew at each step."
+    },
+    "B1": {
+      "implemented": true,
+      "priority": "HIGH",
+      "notes": "Two-stage check: (1) 15-char alphanumeric regex with OCR-correction for common misreads (O->0, I->1) at digit positions, (2) active-status lookup via Mock GSTIN API."
+    },
+    "B7": {
+      "implemented": true,
+      "priority": "HIGH",
+      "notes": "GST type consistency: inter-state invoices must use IGST only, intra-state must use equal CGST+SGST. Mixed usage flagged as INVALID. RCM and foreign-vendor invoices are handled as edge cases."
+    },
+    "C1": {
+      "implemented": true,
+      "priority": "HIGH",
+      "notes": "Pure arithmetic check: quantity x rate = amount for every line item. Rs 1 rounding tolerance applied. Errors reported per-line with expected vs actual amounts."
+    },
+    "C2": {
+      "implemented": true,
+      "priority": "HIGH",
+      "notes": "Subtotal cross-check: sum of all line item amounts must equal the stated subtotal. Rs 1 rounding tolerance. Credit notes with negative amounts handled correctly."
+    },
+    "D1": {
+      "implemented": true,
+      "priority": "HIGH",
+      "notes": "TDS applicability determined by LLM using vendor type, invoice amount, threshold rules, and tds_sections.json. Vendor-type-to-section mapping applied before LLM call to reduce context size. Result cached for D2."
+    },
+    "D2": {
+      "implemented": true,
+      "priority": "HIGH",
+      "notes": "TDS section, rate, and amount determination. Reads from D1 cache (no extra LLM call). Covers 194C, 194J, 194H, 194I, 194Q, 195. Handles LDC rate reduction, 206AB doubling, foreign vendor DTAA, no-PAN 20% rate. LLM arithmetic sanity-checked and corrected if wrong."
+    },
+    "E1": {
+      "implemented": true,
+      "priority": "HIGH",
+      "notes": "Invoice total within +/-5% of PO amount. Skipped (not penalised) when no PO amount is present on the invoice."
+    },
+    "E3": {
+      "implemented": true,
+      "priority": "HIGH",
+      "notes": "Vendor GSTIN lookup against vendor_registry.json. Checks both presence and ACTIVE status. SUSPENDED vendors fail this check even if present in the registry."
+    }
+  }
+}

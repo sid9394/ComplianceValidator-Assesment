@@ -1,0 +1,55 @@
+2026-05-06 18:27:06,594 - INFO - logger - ============================================================
+2026-05-06 18:27:06,595 - INFO - logger - INVOICE START: INV-2024-0001
+2026-05-06 18:29:34,435 - INFO - logger - INVOICE END: INV-2024-0001 | Decision: APPROVED | Score: 100% | Confidence: 0.980 | Time: 147.84s
+2026-05-06 18:29:34,437 - INFO - logger - ============================================================
+2026-05-06 18:29:54,455 - INFO - logger - ============================================================
+2026-05-06 18:29:54,456 - INFO - logger - INVOICE START: INV-2024-0002
+2026-05-06 18:31:45,945 - INFO - logger - INVOICE END: INV-2024-0002 | Decision: APPROVED | Score: 100% | Confidence: 0.980 | Time: 111.49s
+2026-05-06 18:31:45,998 - INFO - logger - ============================================================
+2026-05-06 18:32:06,051 - INFO - logger - ============================================================
+2026-05-06 18:32:06,052 - INFO - logger - INVOICE START: INV-2024-0003
+2026-05-06 18:38:21,649 - INFO - logger - ============================================================
+2026-05-06 18:38:21,650 - INFO - logger - INVOICE START: INV-2024-0001
+2026-05-06 18:40:43,430 - INFO - logger - INVOICE END: INV-2024-0001 | Decision: APPROVED | Score: 100% | Confidence: 0.980 | Time: 141.78s
+2026-05-06 18:40:43,492 - INFO - logger - ============================================================
+2026-05-06 18:41:03,544 - INFO - logger - ============================================================
+2026-05-06 18:41:03,546 - INFO - logger - INVOICE START: INV-2024-0010
+2026-05-06 18:43:06,746 - INFO - logger - INVOICE END: INV-2024-0010 | Decision: REJECTED | Score: 89% | Confidence: 0.969 | Time: 123.20s
+2026-05-06 18:43:06,748 - INFO - logger - ============================================================
+2026-05-06 20:03:46,753 - INFO - logger - ============================================================
+2026-05-06 20:03:46,753 - INFO - logger - INVOICE START: INV-2024-0001
+2026-05-06 20:05:53,366 - INFO - logger - INVOICE END: INV-2024-0001 | Decision: APPROVED | Score: 100% | Confidence: 0.980 | Time: 126.61s
+2026-05-06 20:05:53,368 - INFO - logger - ============================================================
+2026-05-06 20:06:13,389 - INFO - logger - ============================================================
+2026-05-06 20:06:13,391 - INFO - logger - INVOICE START: INV-2024-0002
+2026-05-06 20:24:03,036 - INFO - logger - ============================================================
+2026-05-06 20:24:03,036 - INFO - logger - INVOICE START: INV-2024-0009
+2026-05-06 20:24:03,036 - ERROR - logger - ERROR [INV-2024-0009]: 'NoneType' object has no attribute 'upper'
+2026-05-06 20:24:23,043 - INFO - logger - ============================================================
+2026-05-06 20:24:23,043 - INFO - logger - INVOICE START: INV-2024-0014
+2026-05-06 20:26:56,743 - INFO - logger - INVOICE END: INV-2024-0014 | Decision: APPROVED | Score: 100% | Confidence: 0.950 | Time: 153.70s
+2026-05-06 20:26:56,743 - INFO - logger - ============================================================
+2026-05-06 21:42:13,948 - INFO - logger - ============================================================
+2026-05-06 21:42:13,977 - INFO - logger - INVOICE START: INV-2024-0009
+2026-05-06 21:44:28,675 - INFO - logger - INVOICE END: INV-2024-0009 | Decision: REJECTED | Score: 89% | Confidence: 0.891 | Time: 134.65s
+2026-05-06 21:44:28,677 - INFO - logger - ============================================================
+2026-05-06 21:44:48,698 - INFO - logger - ============================================================
+2026-05-06 21:44:48,698 - INFO - logger - INVOICE START: INV-2024-0014
+2026-05-06 21:47:36,361 - INFO - logger - INVOICE END: INV-2024-0014 | Decision: APPROVED | Score: 100% | Confidence: 0.950 | Time: 167.66s
+2026-05-06 21:47:36,383 - INFO - logger - ============================================================
+2026-05-06 21:53:44,512 - INFO - logger - ============================================================
+2026-05-06 21:53:44,512 - INFO - logger - INVOICE START: INV-2024-0009
+2026-05-06 21:55:50,840 - INFO - logger - INVOICE END: INV-2024-0009 | Decision: APPROVED | Score: 100% | Confidence: 0.980 | Time: 126.33s
+2026-05-06 21:55:50,840 - INFO - logger - ============================================================
+2026-05-06 21:56:10,863 - INFO - logger - ============================================================
+2026-05-06 21:56:10,866 - INFO - logger - INVOICE START: INV-2024-0014
+2026-05-06 21:58:34,606 - INFO - logger - INVOICE END: INV-2024-0014 | Decision: APPROVED | Score: 100% | Confidence: 0.939 | Time: 143.73s
+2026-05-06 21:58:34,610 - INFO - logger - ============================================================
+2026-05-06 22:22:33,387 - INFO - logger - ============================================================
+2026-05-06 22:22:33,387 - INFO - logger - INVOICE START: INV-2024-0009
+2026-05-06 22:22:36,448 - ERROR - logger - ERROR [INV-2024-0009]: litellm.RateLimitError: RateLimitError: GroqException - {"error":{"message":"Rate limit reached for model `llama-3.1-8b-instant` in organization `org_01kqm8yw6tew4snxd1kf8qzd91` service tier `on_demand` on tokens per minute (TPM): Limit 6000, Used 2770, Requested 5641. Please try again in 24.11s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing","type":"tokens","code":"rate_limit_exceeded"}}
+
+2026-05-06 22:23:21,462 - INFO - logger - ============================================================
+2026-05-06 22:23:21,462 - INFO - logger - INVOICE START: INV-2024-0014
+2026-05-06 22:23:24,622 - ERROR - logger - ERROR [INV-2024-0014]: litellm.RateLimitError: RateLimitError: GroqException - {"error":{"message":"Request too large for model `llama-3.1-8b-instant` in organization `org_01kqm8yw6tew4snxd1kf8qzd91` service tier `on_demand` on tokens per minute (TPM): Limit 6000, Requested 7727, please reduce your message size and try again. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing","type":"tokens","code":"rate_limit_exceeded"}}
+

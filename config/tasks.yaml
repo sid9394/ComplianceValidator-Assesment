@@ -1,0 +1,165 @@
+# tasks.yaml
+# instructions and output format for each task
+# the actual agent personality lives in agents.yaml, not here
+# {variable} placeholders get replaced at runtime when the crew kicks off
+
+extract_task:
+  description: >
+    Parse and normalize the raw invoice input into a clean consistent structure.
+
+    Raw invoice input:
+    {invoice_json}
+
+    The input is always a JSON string, but its content varies by source format:
+
+    FORMAT 1 — Native invoice JSON (most common):
+    The input is a structured invoice dict with fields like invoice_id, vendor, buyer, etc.
+    Parse and normalize it directly.
+
+    FORMAT 2 — Wrapped non-JSON source:
+    The input is a wrapper dict with these keys:
+      _source_format: one of "pdf", "docx", "csv", "text"
+      _source_file: the original filename
+      _raw_content: the raw extracted text (for pdf/docx/text) or a JSON-encoded CSV row dict
+
+    When you see _source_format, parse the _raw_content field to extract all invoice fields.
+    Use your knowledge of Indian invoice formats (GST invoice layout, TDS fields, HSN/SAC codes,
+    GSTIN/PAN patterns) to identify every relevant field from the unstructured text or CSV row.
+
+    Rules for all formats:
+    - Copy all fields exactly as they appear. Never alter GSTIN, PAN, or invoice numbers.
+    - Identify and flag any missing or null required fields: invoice_id, invoice_number,
+      invoice_date, vendor.gstin, vendor.name, buyer.gstin, line_items, total_amount.
+    - Normalize field names to snake_case if they differ (e.g. "Bill To" → buyer, "Inv No" → invoice_number).
+    - Normalize ALL date fields (invoice_date, due_date, po_date, original_invoice_date) to YYYY-MM-DD format regardless of how they appear in the source (e.g. "15/08/2024", "15-Aug-2024", "August 15 2024" → "2024-08-15"). If a date cannot be parsed, set it to null and add a note in data_quality_notes.
+    - If a field is missing, include it with a null value and note it in missing_fields.
+    - Do not infer or fill in missing values. Just flag them.
+  expected_output: >
+    A JSON object with:
+    invoice_id as string,
+    invoice_number as string,
+    invoice_date as string,
+    vendor as object with gstin and name,
+    buyer as object with gstin and name,
+    line_items as array,
+    total_amount as number,
+    missing_fields as list of field names that were absent or null in the raw input,
+    data_quality_notes as list of strings describing any anomalies found,
+    source_format as string — "json" for native JSON, or the _source_format value for wrapped inputs.
+  agent: extractor_agent
+
+validate_task:
+  description: >
+    Run all 10 compliance checks on the normalized invoice.
+
+    Use the normalized invoice JSON produced by the extractor agent (available in your
+    context from the previous task) as the invoice data for all tool calls.
+    The original raw input is also provided below for reference only — it may be
+    native JSON or a wrapped PDF/CSV/DOCX input; prefer the extractor's output.
+
+    Original raw input:
+    {invoice_json}
+
+    Vendor registry:
+    {vendor_registry_json}
+
+    Seen invoices for duplicate detection:
+    {seen_invoices_json}
+
+    Call tools in this exact order: A1, A2, B1, B7, C1, C2, D1, D2, E1, E3.
+    Never skip a check. Never produce a result without calling the tool.
+
+    Tool inputs:
+    A1: invoice_number as string
+    A2: invoice_number, vendor_gstin, already_seen_invoices_json
+    B1: vendor_gstin as string
+    B7: full invoice as JSON string — serialize the entire normalized invoice object to a JSON string and pass it
+    C1: line_items array as JSON string — serialize the line_items array from the normalized invoice to a JSON string
+    C2: full invoice as JSON string — serialize the entire normalized invoice object to a JSON string and pass it; NEVER pass an empty string
+    D1: full invoice as JSON string (serialize entire normalized invoice), vendor_registry as JSON string
+    D2: full invoice as JSON string (serialize entire normalized invoice), vendor_registry as JSON string
+    E1: full invoice as JSON string — serialize the entire normalized invoice object to a JSON string and pass it
+    E3: vendor_gstin as string, vendor_registry as JSON string
+
+    Edge cases:
+    Foreign vendor with no GSTIN: run B1 and mark GSTIN as not applicable.
+    Credit note with negative amounts: still run C1 and C2.
+    Export invoice: run all checks, mark non-applicable ones as skipped.
+    RCM invoice: note the RCM flag in B7.
+    Missing fields: run the check if possible, skip with explanation if not.
+  expected_output: >
+    A JSON object with exactly these 10 keys: A1, A2, B1, B7, C1, C2, D1, D2, E1, E3.
+    Each key maps to an object with:
+    check_id as string, passed as boolean, confidence as float 0.0 to 1.0,
+    finding as string, evidence as dict,
+    skipped as boolean, skip_reason as string if skipped is true.
+  agent: validator_agent
+
+resolve_task:
+  description: >
+    Analyze all 10 check results from the validator and produce the final decision.
+
+    Apply rules in this strict order:
+    Rule 1: A2 or B1 or C1 or C2 failed = REJECTED. No exceptions.
+    Rule 2: Average confidence below 0.70 = ESCALATE_TO_HUMAN.
+    Rule 3: Critical fields missing (invoice_number, vendor_gstin, total_amount) = HOLD_FOR_VERIFICATION.
+    Rule 4: All checks passed = APPROVED.
+    Rule 5: Any other combination = reason through failures and choose the best decision.
+
+    compliance_score = (passed checks / checks that ran) x 100. Skipped checks excluded.
+    confidence = average confidence of checks that ran. Skipped checks excluded.
+    requires_human_review = true if confidence below 0.70 or decision is not APPROVED.
+
+    Skipped checks do not penalize the score.
+    Credit note negative amounts are valid, do not treat as failures.
+  expected_output: >
+    A JSON object with:
+    decision as one of: APPROVED, REJECTED, ESCALATE_TO_HUMAN, HOLD_FOR_VERIFICATION,
+    compliance_score as integer 0 to 100,
+    confidence as float 0.0 to 1.0 rounded to 3 decimal places,
+    requires_human_review as boolean,
+    failed_checks as list of check IDs,
+    critical_failures as list of check IDs from the critical set,
+    skipped_checks as list of check IDs with reasons,
+    decision_reasoning as string with specific references to which checks failed and why.
+  agent: resolver_agent
+
+report_task:
+  description: >
+    Format the final compliance report using all previous task outputs.
+    Match the required schema exactly. Every field must be present with the correct type.
+
+    validation_results grouping:
+    category_a_authenticity: A1, A2
+    category_b_gst: B1, B7
+    category_c_arithmetic: C1, C2
+    category_d_tds: D1, D2
+    category_e_policy: E1, E3
+
+    Each category: score = passed checks, max_score = checks that ran (not skipped).
+
+    audit_trail: one entry per check with timestamp, check_id, passed, finding, confidence.
+    Add a final entry from the resolver with the decision and reasoning.
+    Skipped checks appear in audit_trail with skipped set to true.
+
+    tds_summary: from D1 and D2 - tds_applicable, tds_section, tds_rate, tds_amount, special_rules_applied.
+    gst_summary: from B1 and B7 - gstin_valid, gstin_status, gst_type, cgst_rate, sgst_rate, igst_rate.
+  expected_output: >
+    {
+      "invoice_id": "string",
+      "overall_decision": "APPROVED or REJECTED or ESCALATE_TO_HUMAN or HOLD_FOR_VERIFICATION",
+      "compliance_score": integer,
+      "confidence": float,
+      "requires_human_review": boolean,
+      "validation_results": {
+        "category_a_authenticity": {"score": integer, "max_score": integer, "checks": {"A1": {"passed": boolean, "confidence": float, "finding": "string"}, "A2": {"passed": boolean, "confidence": float, "finding": "string"}}},
+        "category_b_gst": {"score": integer, "max_score": integer, "checks": {"B1": {"passed": boolean, "confidence": float, "finding": "string"}, "B7": {"passed": boolean, "confidence": float, "finding": "string"}}},
+        "category_c_arithmetic": {"score": integer, "max_score": integer, "checks": {"C1": {"passed": boolean, "confidence": float, "finding": "string"}, "C2": {"passed": boolean, "confidence": float, "finding": "string"}}},
+        "category_d_tds": {"score": integer, "max_score": integer, "checks": {"D1": {"passed": boolean, "confidence": float, "finding": "string"}, "D2": {"passed": boolean, "confidence": float, "finding": "string"}}},
+        "category_e_policy": {"score": integer, "max_score": integer, "checks": {"E1": {"passed": boolean, "confidence": float, "finding": "string"}, "E3": {"passed": boolean, "confidence": float, "finding": "string"}}}
+      },
+      "tds_summary": {"tds_applicable": boolean, "tds_section": "string", "tds_rate": float, "tds_amount": float, "special_rules_applied": []},
+      "gst_summary": {"gstin_valid": boolean, "gstin_status": "string", "gst_type": "string", "cgst_rate": float, "sgst_rate": float, "igst_rate": float},
+      "audit_trail": [{"timestamp": "ISO string", "check": "string", "passed": boolean, "finding": "string", "confidence": float}]
+    }
+  agent: reporter_agent

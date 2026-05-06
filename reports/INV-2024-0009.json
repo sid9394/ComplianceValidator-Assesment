@@ -1,0 +1,45 @@
+{
+  "invoice_id": "INV-2024-0009",
+  "overall_decision": "HOLD_FOR_VERIFICATION",
+  "compliance_score": 0,
+  "confidence": 0.0,
+  "requires_human_review": true,
+  "validation_results": {
+    "category_a_authenticity": {
+      "score": 0,
+      "max_score": 2,
+      "checks": {}
+    },
+    "category_b_gst": {
+      "score": 0,
+      "max_score": 2,
+      "checks": {}
+    },
+    "category_c_arithmetic": {
+      "score": 0,
+      "max_score": 2,
+      "checks": {}
+    },
+    "category_d_tds": {
+      "score": 0,
+      "max_score": 2,
+      "checks": {}
+    },
+    "category_e_policy": {
+      "score": 0,
+      "max_score": 2,
+      "checks": {}
+    }
+  },
+  "tds_summary": {},
+  "gst_summary": {},
+  "audit_trail": [
+    {
+      "timestamp": "2026-05-06T22:22:36.459640",
+      "check": "SYSTEM",
+      "passed": false,
+      "finding": "Processing error: litellm.RateLimitError: RateLimitError: GroqException - {\"error\":{\"message\":\"Rate limit reached for model `llama-3.1-8b-instant` in organization `org_01kqm8yw6tew4snxd1kf8qzd91` service tier `on_demand` on tokens per minute (TPM): Limit 6000, Used 2770, Requested 5641. Please try again in 24.11s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing\",\"type\":\"tokens\",\"code\":\"rate_limit_exceeded\"}}\n",
+      "confidence": 0.0
+    }
+  ]
+}

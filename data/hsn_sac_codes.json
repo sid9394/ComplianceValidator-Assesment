@@ -1,0 +1,210 @@
+{
+  "hsn_codes": {
+    "84713010": {
+      "description": "Desktop computers",
+      "category": "GOODS",
+      "chapter": "84",
+      "keywords": ["desktop", "computer", "pc", "workstation"]
+    },
+    "84713020": {
+      "description": "Laptop computers",
+      "category": "GOODS",
+      "chapter": "84",
+      "keywords": ["laptop", "notebook", "portable computer"]
+    },
+    "84714100": {
+      "description": "Data processing machines",
+      "category": "GOODS",
+      "chapter": "84",
+      "keywords": ["server", "data processing", "mainframe"]
+    },
+    "84433210": {
+      "description": "Printers",
+      "category": "GOODS",
+      "chapter": "84",
+      "keywords": ["printer", "laser printer", "inkjet"]
+    },
+    "84433220": {
+      "description": "Multifunction printers",
+      "category": "GOODS",
+      "chapter": "84",
+      "keywords": ["mfp", "multifunction", "copier", "scanner printer"]
+    },
+    "84718000": {
+      "description": "Computer peripherals",
+      "category": "GOODS",
+      "chapter": "84",
+      "keywords": ["keyboard", "mouse", "monitor", "peripheral"]
+    },
+    "48025510": {
+      "description": "Copier paper (A4/A3)",
+      "category": "GOODS",
+      "chapter": "48",
+      "keywords": ["paper", "a4", "copier", "printing paper"]
+    },
+    "48025520": {
+      "description": "Notebooks and registers",
+      "category": "GOODS",
+      "chapter": "48",
+      "keywords": ["notebook", "register", "diary"]
+    },
+    "39269099": {
+      "description": "Plastic stationery items",
+      "category": "GOODS",
+      "chapter": "39",
+      "keywords": ["plastic", "stationery", "folder", "file"]
+    },
+    "94032000": {
+      "description": "Metal furniture for offices",
+      "category": "GOODS",
+      "chapter": "94",
+      "keywords": ["metal", "furniture", "desk", "cabinet", "office"]
+    },
+    "94033000": {
+      "description": "Wooden furniture for offices",
+      "category": "GOODS",
+      "chapter": "94",
+      "keywords": ["wooden", "wood", "furniture", "desk", "office"]
+    },
+    "85044010": {
+      "description": "UPS systems",
+      "category": "GOODS",
+      "chapter": "85",
+      "keywords": ["ups", "uninterrupted power", "battery backup"]
+    },
+    "30049099": {
+      "description": "Medicaments NES",
+      "category": "GOODS",
+      "chapter": "30",
+      "keywords": ["medicine", "drug", "pharmaceutical", "tablet"]
+    },
+    "30049011": {
+      "description": "Paracetamol formulations",
+      "category": "GOODS",
+      "chapter": "30",
+      "keywords": ["paracetamol", "crocin", "fever", "pain"]
+    },
+    "90189099": {
+      "description": "Medical instruments and appliances",
+      "category": "GOODS",
+      "chapter": "90",
+      "keywords": ["medical", "equipment", "instrument", "surgical"]
+    }
+  },
+  "sac_codes": {
+    "998311": {
+      "description": "Management consulting services",
+      "category": "SERVICES",
+      "group": "998",
+      "keywords": ["consulting", "management", "advisory", "strategy"]
+    },
+    "998312": {
+      "description": "Business and management consulting (exempt for SEZ)",
+      "category": "SERVICES",
+      "group": "998",
+      "keywords": ["consulting", "sez", "export"]
+    },
+    "998314": {
+      "description": "Information technology consulting",
+      "category": "SERVICES",
+      "group": "998",
+      "keywords": ["it consulting", "technology consulting", "digital"]
+    },
+    "998315": {
+      "description": "IT design and development services",
+      "category": "SERVICES",
+      "group": "998",
+      "keywords": ["software development", "application development", "coding"]
+    },
+    "998316": {
+      "description": "IT infrastructure and network management",
+      "category": "SERVICES",
+      "group": "998",
+      "keywords": ["infrastructure", "network", "hosting", "maintenance"]
+    },
+    "998392": {
+      "description": "Temporary staffing services",
+      "category": "SERVICES",
+      "group": "998",
+      "keywords": ["staffing", "temporary", "contract staff", "manpower"]
+    },
+    "996511": {
+      "description": "Road transport services - goods",
+      "category": "SERVICES",
+      "group": "996",
+      "keywords": ["transport", "logistics", "freight", "trucking", "goods transport"],
+      "special_notes": "Can be under forward charge or RCM"
+    },
+    "996512": {
+      "description": "Rail transport services - goods",
+      "category": "SERVICES",
+      "group": "996",
+      "keywords": ["rail", "railway", "train", "goods transport"]
+    },
+    "997212": {
+      "description": "Rental services of commercial property",
+      "category": "SERVICES",
+      "group": "997",
+      "keywords": ["rent", "lease", "commercial", "office space"]
+    },
+    "997211": {
+      "description": "Rental services of residential property",
+      "category": "SERVICES",
+      "group": "997",
+      "keywords": ["rent", "residential", "housing"],
+      "special_notes": "Exempt from GST"
+    },
+    "995411": {
+      "description": "General construction services",
+      "category": "SERVICES",
+      "group": "995",
+      "keywords": ["construction", "building", "civil work"]
+    },
+    "995429": {
+      "description": "Electrical installation services",
+      "category": "SERVICES",
+      "group": "995",
+      "keywords": ["electrical", "wiring", "installation"]
+    },
+    "998599": {
+      "description": "Other professional services",
+      "category": "SERVICES",
+      "group": "998",
+      "keywords": ["professional", "services", "other"]
+    },
+    "998712": {
+      "description": "Software licensing - perpetual",
+      "category": "SERVICES",
+      "group": "998",
+      "keywords": ["license", "software", "perpetual"]
+    },
+    "998713": {
+      "description": "Software licensing - subscription",
+      "category": "SERVICES",
+      "group": "998",
+      "keywords": ["subscription", "saas", "software", "license"]
+    }
+  },
+  "ambiguous_mappings": {
+    "_note": "These are common classification disputes that agents should handle carefully",
+    "software_vs_service": {
+      "scenario": "Custom software development - is it goods (software) or service (development)?",
+      "guidance": "Generally treated as service (998315) unless delivered as packaged product",
+      "dispute_rate": "high"
+    },
+    "consulting_vs_technical": {
+      "scenario": "IT project with both consulting and development",
+      "guidance": "Classify based on predominant nature; if unclear, use principal supply rules",
+      "dispute_rate": "very_high"
+    },
+    "composite_vs_mixed": {
+      "scenario": "Invoice contains both goods and services",
+      "guidance": "If naturally bundled = composite (single rate); if independent = mixed (separate rates)",
+      "dispute_rate": "medium"
+    }
+  },
+  "_hidden_trap": {
+    "note": "SAC 996511 has TWO different GST treatments - forward charge vs RCM. Agent must determine based on vendor registration and invoice terms.",
+    "test_invoice": "INV-2024-0847"
+  }
+}

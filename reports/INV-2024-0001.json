@@ -1,0 +1,184 @@
+{
+  "invoice_id": "INV-2024-0001",
+  "overall_decision": "APPROVED",
+  "compliance_score": 100,
+  "confidence": 0.98,
+  "requires_human_review": false,
+  "validation_results": {
+    "category_a_authenticity": {
+      "score": 2,
+      "max_score": 2,
+      "checks": {
+        "A1": {
+          "passed": true,
+          "confidence": 0.9,
+          "finding": "Invoice number 'TS/MH/2024/001234' format valid"
+        },
+        "A2": {
+          "passed": true,
+          "confidence": 1.0,
+          "finding": "No duplicate found"
+        }
+      }
+    },
+    "category_b_gst": {
+      "score": 2,
+      "max_score": 2,
+      "checks": {
+        "B1": {
+          "passed": true,
+          "confidence": 0.95,
+          "finding": "GSTIN '27AABCT1234F1ZP' is valid, status: ACTIVE"
+        },
+        "B7": {
+          "passed": true,
+          "confidence": 0.97,
+          "finding": "Intra-state: CGST 9.0% equals SGST 9.0%"
+        }
+      }
+    },
+    "category_c_arithmetic": {
+      "score": 2,
+      "max_score": 2,
+      "checks": {
+        "C1": {
+          "passed": true,
+          "confidence": 1.0,
+          "finding": "All 1 line items correct"
+        },
+        "C2": {
+          "passed": true,
+          "confidence": 1.0,
+          "finding": "Subtotal matches: calculated Rs 500,000.00 vs stated Rs 500,000.00"
+        }
+      }
+    },
+    "category_d_tds": {
+      "score": 2,
+      "max_score": 2,
+      "checks": {
+        "D1": {
+          "passed": true,
+          "confidence": 1.0,
+          "finding": "TDS APPLICABLE | Section: 194J | The vendor provides IT_SERVICES (Software Development) which falls under section 194J, and the invoice subtotal of Rs 500,000 exceeds the Rs 30,000 threshold for the section."
+        },
+        "D2": {
+          "passed": true,
+          "confidence": 1.0,
+          "finding": "Section 194J | Rate 2.0% | TDS Rs 10,000.00 | TDS is calculated on the subtotal (excluding GST) as per the general rule for section 194J, since GST is shown separately on the invoice. | Vendor: company | Service: technical"
+        }
+      }
+    },
+    "category_e_policy": {
+      "score": 1,
+      "max_score": 1,
+      "checks": {
+        "E1": {
+          "passed": true,
+          "confidence": 1.0,
+          "finding": "No PO amount on invoice - E1 skipped"
+        },
+        "E3": {
+          "passed": true,
+          "confidence": 1.0,
+          "finding": "Vendor 'TechSoft Solutions Private Limited' is approved and ACTIVE"
+        }
+      }
+    }
+  },
+  "tds_summary": {
+    "tds_applicable": true,
+    "tds_section": "194J",
+    "tds_rate": 2.0,
+    "tds_amount": 10000.0,
+    "special_rules_applied": []
+  },
+  "gst_summary": {
+    "gstin_valid": true,
+    "gstin_status": "ACTIVE",
+    "gst_type": "intra-state",
+    "cgst_rate": 9.0,
+    "sgst_rate": 9.0,
+    "igst_rate": 0.0
+  },
+  "audit_trail": [
+    {
+      "timestamp": "2024-09-15T10:00:00Z",
+      "check": "A1",
+      "passed": true,
+      "finding": "Invoice number 'TS/MH/2024/001234' format valid",
+      "confidence": 0.9
+    },
+    {
+      "timestamp": "2024-09-15T10:00:00Z",
+      "check": "A2",
+      "passed": true,
+      "finding": "No duplicate found",
+      "confidence": 1.0
+    },
+    {
+      "timestamp": "2024-09-15T10:00:00Z",
+      "check": "B1",
+      "passed": true,
+      "finding": "GSTIN '27AABCT1234F1ZP' is valid, status: ACTIVE",
+      "confidence": 0.95
+    },
+    {
+      "timestamp": "2024-09-15T10:00:00Z",
+      "check": "B7",
+      "passed": true,
+      "finding": "Intra-state: CGST 9.0% equals SGST 9.0%",
+      "confidence": 0.97
+    },
+    {
+      "timestamp": "2024-09-15T10:00:00Z",
+      "check": "C1",
+      "passed": true,
+      "finding": "All 1 line items correct",
+      "confidence": 1.0
+    },
+    {
+      "timestamp": "2024-09-15T10:00:00Z",
+      "check": "C2",
+      "passed": true,
+      "finding": "Subtotal matches: calculated Rs 500,000.00 vs stated Rs 500,000.00",
+      "confidence": 1.0
+    },
+    {
+      "timestamp": "2024-09-15T10:00:00Z",
+      "check": "D1",
+      "passed": true,
+      "finding": "TDS APPLICABLE | Section: 194J | The vendor provides IT_SERVICES (Software Development) which falls under section 194J, and the invoice subtotal of Rs 500,000 exceeds the Rs 30,000 threshold for the section.",
+      "confidence": 1.0
+    },
+    {
+      "timestamp": "2024-09-15T10:00:00Z",
+      "check": "D2",
+      "passed": true,
+      "finding": "Section 194J | Rate 2.0% | TDS Rs 10,000.00 | TDS is calculated on the subtotal (excluding GST) as per the general rule for section 194J, since GST is shown separately on the invoice. | Vendor: company | Service: technical",
+      "confidence": 1.0
+    },
+    {
+      "timestamp": "2024-09-15T10:00:00Z",
+      "check": "E1",
+      "passed": true,
+      "finding": "No PO amount on invoice - E1 skipped",
+      "confidence": 1.0,
+      "skipped": true
+    },
+    {
+      "timestamp": "2024-09-15T10:00:00Z",
+      "check": "E3",
+      "passed": true,
+      "finding": "Vendor 'TechSoft Solutions Private Limited' is approved and ACTIVE",
+      "confidence": 1.0
+    },
+    {
+      "timestamp": "2024-09-15T10:05:00Z",
+      "check": "Resolver",
+      "passed": true,
+      "finding": "All critical checks (A2: No duplicate found, B1: GSTIN valid, C1: All line items correct, C2: Subtotal matches) passed. All other applicable checks (A1, B7, D1, D2, E3) also passed. The overall compliance score is 100% (9/9 checks passed) with an average confidence of 0.980, which is above the 0.70 threshold. No critical fields were missing. Therefore, the invoice is APPROVED.",
+      "confidence": 0.98
+    }
+  ]
+}

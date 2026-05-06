@@ -1,0 +1,218 @@
+# FinanceGuard Solutions - Internal Compliance Policy
+# Version: 3.2.1
+# Effective Date: 2024-04-01
+# Last Updated: 2024-10-01
+
+company_details:
+  legal_name: "FinanceGuard Solutions Private Limited"
+  gstin: "27AABCF9999K1ZX"
+  pan: "AABCF9999K"
+  tan: "MUMF12345E"
+  state_code: "27"
+  state: "Maharashtra"
+  registered_address: "Tower A, Mindspace, Goregaon East, Mumbai - 400063"
+  fy_turnover_previous: 150000000  # 15 Crores - relevant for 194Q
+  fy_start: "2024-04-01"
+  fy_end: "2025-03-31"
+
+invoice_acceptance_rules:
+  # Standard tolerances
+  amount_tolerance_percentage: 5.0  # Invoice can be ±5% of PO amount
+  amount_tolerance_absolute: 1000   # Or ±₹1000, whichever is higher
+  
+  # Date rules
+  max_invoice_age_days: 180  # Reject invoices older than 180 days
+  future_date_tolerance_days: 0  # No future-dated invoices
+  backdating_tolerance_days: 7  # Invoice date can be up to 7 days before delivery
+  
+  # FY boundary rules
+  fy_cutoff_rules:
+    march_invoices_until: "2024-04-15"  # Accept March invoices until April 15
+    book_to_period: "invoice_date"  # Use invoice date for period allocation
+    exception_for_services: true  # Services can be booked to delivery month
+  
+  # Duplicate detection
+  duplicate_window_days: 365
+  duplicate_fields: ["vendor_gstin", "invoice_number", "invoice_amount"]
+  near_duplicate_threshold: 0.95  # Flag invoices >95% similar
+
+approval_matrix:
+  # Standard approval levels
+  levels:
+    - level: 1
+      name: "Auto-Approve"
+      max_amount: 50000
+      approvers: []
+      conditions:
+        - "vendor_on_approved_list"
+        - "within_po_tolerance"
+        - "compliance_score >= 95"
+    
+    - level: 2
+      name: "Manager Approval"
+      max_amount: 200000
+      approvers: ["department_manager"]
+      sla_hours: 24
+    
+    - level: 3
+      name: "Senior Manager"
+      max_amount: 500000
+      approvers: ["senior_manager", "finance_lead"]
+      sla_hours: 48
+    
+    - level: 4
+      name: "Director Approval"
+      max_amount: 2000000
+      approvers: ["director", "cfo_delegate"]
+      sla_hours: 72
+    
+    - level: 5
+      name: "CFO Approval"
+      max_amount: 10000000
+      approvers: ["cfo"]
+      sla_hours: 96
+    
+    - level: 6
+      name: "Board Approval"
+      max_amount: null  # Unlimited
+      approvers: ["cfo", "ceo", "board_member"]
+      sla_hours: 168
+
+  # Override rules (hidden complexity)
+  special_overrides:
+    msme_vendors:
+      description: "MSME vendors get priority processing"
+      max_payment_days: 45
+      escalation_after_days: 30
+      override_to_level: 2  # Max auto-approval for MSME is higher
+      max_auto_amount: 100000
+    
+    first_time_vendor:
+      description: "First invoice from new vendor"
+      minimum_level: 3
+      additional_checks:
+        - "bank_details_verification"
+        - "gstin_active_verification"
+        - "pan_name_match"
+    
+    retrospective_invoice:
+      description: "Invoice dated >60 days ago"
+      minimum_level: 4
+      requires_justification: true
+      
+    high_risk_categories:
+      categories: ["FOREIGN_VENDOR", "CONTRACTOR", "COMMISSION_AGENT"]
+      level_increase: 1
+      additional_documentation: true
+
+budget_controls:
+  cost_centers:
+    - code: "CC001"
+      name: "IT Operations"
+      annual_budget: 50000000
+      consumed_ytd: 32000000
+      alert_threshold: 80
+      
+    - code: "CC002"
+      name: "Admin & Facilities"
+      annual_budget: 15000000
+      consumed_ytd: 11000000
+      alert_threshold: 75
+      
+    - code: "CC003"
+      name: "Marketing"
+      annual_budget: 20000000
+      consumed_ytd: 8000000
+      alert_threshold: 70
+      
+    - code: "CC004"
+      name: "Human Resources"
+      annual_budget: 10000000
+      consumed_ytd: 6500000
+      alert_threshold: 75
+
+  over_budget_rules:
+    allow_overspend: false
+    exception_process: "CFO approval required"
+    max_overspend_percentage: 10
+
+payment_terms:
+  default_terms_days: 30
+  early_payment_discount:
+    enabled: true
+    threshold_days: 10
+    discount_rate: 2.0  # 2% discount for payment within 10 days
+  
+  late_payment_interest:
+    enabled: true
+    rate_annual: 18.0
+    grace_period_days: 7
+  
+  msme_compliance:
+    enabled: true
+    max_days: 45
+    interest_rate: "RBI MCLR + 3%"
+
+gstin_validation:
+  validate_against_portal: true
+  cache_validity_hours: 24
+  accept_suspended: false
+  accept_cancelled: false
+  verify_trade_name: true
+  trade_name_match_threshold: 0.7
+
+tds_compliance:
+  auto_deduct: true
+  verify_pan_name: true
+  check_206ab_status: true
+  lower_deduction_cert_expiry_alert_days: 30
+  quarterly_reconciliation: true
+
+e_invoice_rules:
+  mandatory_threshold: 50000000  # 5 Crores
+  validate_irn: true
+  validate_qr: true
+  accept_without_irn_if:
+    - vendor_turnover_below_threshold: true
+    - invoice_before_mandate_date: true
+  irn_validation_api: "https://einvoice1.gst.gov.in/validate"
+
+# Hidden trap: These rules override others in specific scenarios
+_internal_overrides:
+  related_party_transactions:
+    vendors: ["VND001", "VND011"]  # Same PAN different branches
+    additional_scrutiny: true
+    minimum_approval_level: 4
+    arm_length_price_check: true
+  
+  dormant_vendor_reactivation:
+    inactive_months: 12
+    requires_fresh_kyc: true
+    first_invoice_approval: "senior_manager"
+  
+  cumulative_vendor_threshold:
+    description: "When cumulative payments to vendor exceed threshold in FY"
+    threshold: 5000000
+    action: "flag_for_review"
+    check_across_branches: true
+
+# Compliance scoring weights
+compliance_scoring:
+  document_authenticity: 15
+  gst_compliance: 25
+  arithmetic_accuracy: 15
+  tds_compliance: 20
+  policy_compliance: 15
+  data_quality: 10
+  
+  auto_reject_threshold: 50
+  manual_review_threshold: 80
+  auto_approve_threshold: 95
+
+# Audit trail requirements
+audit_requirements:
+  retain_all_documents: true
+  retention_years: 8
+  log_all_decisions: true
+  log_reasoning: true
+  sign_off_required_above: 500000

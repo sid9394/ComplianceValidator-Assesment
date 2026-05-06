@@ -1,0 +1,144 @@
+{
+  "tds_sections": [
+    {
+      "section": "194C",
+      "description": "Payment to Contractors",
+      "applicable_to": ["CONTRACTOR", "TRANSPORT", "INDIVIDUAL_CONTRACTOR"],
+      "rate_individual": 1.0,
+      "rate_company": 2.0,
+      "rate_no_pan": 20.0,
+      "single_payment_threshold": 30000,
+      "aggregate_threshold_per_fy": 100000,
+      "tds_on_gst": false,
+      "notes": "Deduct on amount exclusive of GST if GST shown separately",
+      "exceptions": [
+        "Payment to GTA when GTA pays GST under forward charge",
+        "Personal payments not for business"
+      ]
+    },
+    {
+      "section": "194J",
+      "description": "Professional/Technical Services",
+      "applicable_to": ["IT_SERVICES", "PROFESSIONAL_SERVICES"],
+      "rate_professional": 10.0,
+      "rate_technical": 2.0,
+      "rate_royalty": 10.0,
+      "rate_no_pan": 20.0,
+      "threshold": 30000,
+      "tds_on_gst": false,
+      "notes": "Technical services @2% w.e.f 01-04-2020. Professional remains @10%",
+      "classification_rules": {
+        "IT_SERVICES": {
+          "software_development": "technical",
+          "software_customization": "technical", 
+          "it_consulting": "professional",
+          "project_management": "professional",
+          "staff_augmentation": "technical",
+          "cloud_services": "technical",
+          "data_analytics": "professional"
+        }
+      },
+      "_ambiguity_note": "Classification between technical and professional is often disputed. IT services with significant human expertise component may be treated as professional."
+    },
+    {
+      "section": "194H",
+      "description": "Commission or Brokerage",
+      "applicable_to": ["COMMISSION_AGENT", "BROKER"],
+      "rate": 5.0,
+      "rate_no_pan": 20.0,
+      "threshold": 15000,
+      "tds_on_gst": false
+    },
+    {
+      "section": "194I",
+      "description": "Rent",
+      "applicable_to": ["RENT"],
+      "sub_sections": {
+        "194I_a": {
+          "description": "Rent on plant/machinery/equipment",
+          "rate": 2.0
+        },
+        "194I_b": {
+          "description": "Rent on land/building/furniture",
+          "rate": 10.0
+        }
+      },
+      "rate_no_pan": 20.0,
+      "threshold": 240000,
+      "threshold_type": "annual",
+      "tds_on_gst": true,
+      "notes": "TDS applicable on GST component for rent"
+    },
+    {
+      "section": "194Q",
+      "description": "Purchase of Goods",
+      "applicable_to": ["GOODS_SUPPLIER"],
+      "rate": 0.1,
+      "rate_no_pan": 5.0,
+      "threshold": 5000000,
+      "threshold_type": "annual",
+      "buyer_turnover_threshold": 100000000,
+      "effective_from": "2021-07-01",
+      "tds_on_gst": false,
+      "notes": "Only if buyer's turnover exceeds 10Cr in previous FY",
+      "precedence_note": "If 206C(1H) applicable on seller, 194Q takes precedence"
+    },
+    {
+      "section": "195",
+      "description": "Payment to Non-Residents",
+      "applicable_to": ["FOREIGN_VENDOR"],
+      "rates": {
+        "royalty": 10.0,
+        "technical_services": 10.0,
+        "interest": 20.0,
+        "other_income": 30.0
+      },
+      "dtaa_countries": {
+        "US": {"royalty": 15.0, "technical_services": 15.0, "interest": 15.0},
+        "UK": {"royalty": 10.0, "technical_services": 10.0, "interest": 15.0},
+        "Germany": {"royalty": 10.0, "technical_services": 10.0, "interest": 10.0},
+        "Singapore": {"royalty": 10.0, "technical_services": 10.0, "interest": 15.0}
+      },
+      "forms_required": ["Form 15CA", "Form 15CB"],
+      "form_10f_benefit": "Reduced rate under DTAA requires Form 10F, Tax Residency Certificate",
+      "tds_on_gst": false,
+      "notes": "GST under RCM is separate liability"
+    },
+    {
+      "section": "206AB",
+      "description": "Higher TDS for Non-Filers",
+      "effective_from": "2021-07-01",
+      "rate_multiplier": 2.0,
+      "minimum_rate": 5.0,
+      "applicable_when": "Vendor has not filed ITR for 2 preceding years AND aggregate TDS/TCS > 50000 in each year",
+      "excluded_sections": ["192", "192A", "194B", "194BB", "194LBC", "194N"],
+      "verification_required": true,
+      "verification_api": "https://report.insight.gov.in/reporting-webapp/pan-verification"
+    }
+  ],
+  "special_rules": {
+    "lower_deduction_certificate": {
+      "description": "Vendor can obtain certificate for lower/nil TDS",
+      "form": "Form 13",
+      "validity": "One financial year",
+      "applicable_sections": ["194C", "194J", "194I", "194H"]
+    },
+    "threshold_computation": {
+      "single_vs_aggregate": "Most sections have both single transaction AND aggregate annual thresholds",
+      "fy_boundary": "Thresholds reset on April 1st each year",
+      "branch_consolidation": "Payments to same vendor across branches should be aggregated"
+    },
+    "tds_on_gst_clarity": {
+      "general_rule": "TDS should be on amount excluding GST if GST is shown separately",
+      "exception_194I": "For rent u/s 194I, TDS is on gross amount including GST",
+      "cbdt_circular": "Circular No. 23/2017 dated 19-07-2017"
+    }
+  },
+  "_test_traps": {
+    "trap_1": "194J technical vs professional distinction is subjective - model must handle ambiguity",
+    "trap_2": "194Q has buyer turnover threshold that must be verified",
+    "trap_3": "206AB requires ITR filing status check which may not be available",
+    "trap_4": "TDS on GST for rent is opposite of other sections",
+    "trap_5": "DTAA benefits require specific documentation"
+  }
+}

@@ -1,0 +1,86 @@
+[
+  {
+    "invoice_id": "INV-2024-0001",
+    "invoice_number": "TS/MH/2024/001234",
+    "invoice_date": "2024-09-15",
+    "vendor": {
+      "name": "TechSoft Solutions Private Limited",
+      "gstin": "27AABCT1234F1ZP",
+      "pan": "AABCT1234F",
+      "address": "Unit 405, Tech Park, Andheri East, Mumbai - 400069"
+    },
+    "buyer": {
+      "name": "FinanceGuard Solutions Private Limited",
+      "gstin": "27AABCF9999K1ZX",
+      "address": "Tower A, Mindspace, Goregaon East, Mumbai - 400063"
+    },
+    "line_items": [
+      {
+        "description": "Software Development Services - CRM Module",
+        "hsn_sac": "998315",
+        "quantity": 1,
+        "unit": "Project",
+        "rate": 500000,
+        "amount": 500000
+      }
+    ],
+    "subtotal": 500000,
+    "cgst_rate": 9,
+    "cgst_amount": 45000,
+    "sgst_rate": 9,
+    "sgst_amount": 45000,
+    "igst_rate": 0,
+    "igst_amount": 0,
+    "total_tax": 90000,
+    "total_amount": 590000,
+    "irn": "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6a7b8",
+    "irn_date": "2024-09-15",
+    "qr_code_present": true,
+    "payment_terms": "Net 30",
+    "po_reference": "PO-2024-IT-0456",
+    "notes": "As per MSA dated 01-Apr-2024",
+    "_test_category": "STANDARD_VALID",
+    "_expected_result": "PASS",
+    "_complexity": "LOW"
+  },
+  {
+    "invoice_id": "INV-2024-0010",
+    "invoice_number": "TS/MH/2024/001235",
+    "invoice_date": "2024-09-15",
+    "vendor": {
+      "name": "TechSoft Solutions Private Limited",
+      "gstin": "27AABCT1234F1ZP",
+      "pan": "AABCT1234F",
+      "address": "Unit 405, Tech Park, Andheri East, Mumbai - 400069"
+    },
+    "buyer": {
+      "name": "FinanceGuard Solutions Private Limited",
+      "gstin": "27AABCF9999K1ZX",
+      "address": "Tower A, Mindspace, Goregaon East, Mumbai - 400063"
+    },
+    "line_items": [
+      {
+        "description": "Software Development Services - CRM Module",
+        "hsn_sac": "998315",
+        "quantity": 1,
+        "unit": "Project",
+        "rate": 500000,
+        "amount": 500000
+      }
+    ],
+    "subtotal": 500000,
+    "cgst_rate": 9,
+    "cgst_amount": 45000,
+    "sgst_rate": 9,
+    "sgst_amount": 45000,
+    "total_tax": 90000,
+    "total_amount": 590000,
+    "irn": "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6a7b8",
+    "irn_date": "2024-09-15",
+    "payment_terms": "Net 30",
+    "_test_category": "DUPLICATE_INVOICE",
+    "_expected_result": "FAIL",
+    "_complexity": "MEDIUM",
+    "_trap": "Near-duplicate of INV-2024-0001. Same vendor, same date, same amount, sequential invoice number. Only difference is invoice number. Likely duplicate submission."
+  }
+]

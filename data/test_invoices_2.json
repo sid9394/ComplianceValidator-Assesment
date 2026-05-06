@@ -1,0 +1,73 @@
+[
+   {
+      "invoice_id":"INV-2024-0009",
+      "invoice_number":"PR/MUM/2024/RENT-10",
+      "invoice_date":"2024-10-01",
+      "vendor":{
+         "name":"Prime Real Estate Developers",
+         "gstin":"27AABCP7788R1ZT",
+         "pan":"AABCP7788R",
+         "address":"Prime Tower, BKC, Mumbai - 400051"
+      },
+      "buyer":{
+         "name":"FinanceGuard Solutions Private Limited",
+         "gstin":"27AABCF9999K1ZX",
+         "address":"Tower A, Mindspace, Goregaon East, Mumbai - 400063"
+      },
+      "line_items":[
+         {
+            "description":"Office rent for October 2024 - Unit 501, Prime Tower",
+            "hsn_sac":"997212",
+            "quantity":1,
+            "unit":"Month",
+            "rate":450000,
+            "amount":450000
+         }
+      ],
+      "subtotal":450000,
+      "cgst_rate":9,
+      "cgst_amount":40500,
+      "sgst_rate":9,
+      "sgst_amount":40500,
+      "total_tax":81000,
+      "total_amount":531000,
+      "_test_category":"RENT_TDS_ON_GST",
+      "_expected_result":"PASS_WITH_TDS_ON_GROSS",
+      "_complexity":"HIGH",
+      "_trap":"For rent u/s 194I, TDS is applicable on GROSS amount including GST. TDS @10% on 531000 = 53100, not on 450000."
+   },
+   {
+      "invoice_id":"INV-2024-0014",
+      "invoice_number":"GL/DEL/24-25/5650",
+      "invoice_date":"2024-07-15",
+      "vendor":{
+         "name":"GlobaI Logistics & Transport Co.",
+         "gstin":"07AABCG5678H1Z9",
+         "pan":"AABCG5678H",
+         "address":"Plot 23, Industrial Area, Okhla Phase-II, New Delhi - 110020"
+      },
+      "buyer":{
+         "name":"FinanceGuard Solutions Private Limited",
+         "gstin":"27AABCF9999K1ZX",
+         "address":"Tower A, Mindspace, Goregaon East, Mumbai - 400063"
+      },
+      "line_items":[
+         {
+            "description":"Transportation of office equipment",
+            "hsn_sac":"996511",
+            "quantity":1,
+            "unit":"Consignment",
+            "rate":85000,
+            "amount":85000
+         }
+      ],
+      "subtotal":85000,
+      "total_tax":0,
+      "total_amount":85000,
+      "remarks":"GST under Reverse Charge Mechanism",
+      "_test_category":"GTA_RCM",
+      "_expected_result":"PASS_WITH_RCM_LIABILITY",
+      "_complexity":"HIGH",
+      "_trap":"Vendor name has OCR error: 'GlobaI' instead of 'Global' (I vs l). Also, this is GTA under RCM - buyer needs to pay GST. TDS 194C also applicable. Check if vendor has lower deduction cert."
+   }
+]

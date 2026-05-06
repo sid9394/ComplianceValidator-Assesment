@@ -1,933 +1,934 @@
 """
 check_tools.py
-All 10 compliance checks as @tool functions for the Validator Agent.
-A1, A2, B1, B7, C1, C2, E1, E3 are rule-based (regex, math, lookups).
-D1 and D2 are fully LLM-powered using tds_sections.json as context.
-Every function returns a JSON string and never crashes.
+These are the 10 compliance check functions that the validator agent uses.
+Each one is wrapped with @tool so CrewAI can give it to the agent as a callable tool.
+
+A1, A2 - document authenticity (format check and duplicate detection)
+B1, B7 - GST compliance (GSTIN validation and CGST/SGST/IGST consistency)
+C1, C2 - arithmetic (line item maths and subtotal check)
+D1, D2 - TDS compliance (these two actually use the LLM, everything else is pure logic)
+E1, E3 - policy checks (PO tolerance and approved vendor list)
+
+A few things I kept consistent across all of them:
+- inputs are always strings because of how CrewAI passes tool arguments
+- they always return a JSON string and never crash - always return something even on errors
+- all config values come from config/config.py
 """
 
 import json
 import os
 import re
+from datetime import datetime
+import time
 import requests
-from pathlib import Path
-from groq import Groq
+import litellm
 from crewai.tools import tool
+from difflib import SequenceMatcher
 from dotenv import load_dotenv
+
+from config.config import (
+    TDS_SECTIONS_FILE,
+    MOCK_API_BASE_URL,
+    MOCK_API_HEADERS,
+    MOCK_API_TIMEOUT,
+    MOCK_API_ENDPOINTS,
+    ACTIVE_MODEL,
+    ACTIVE_MAX_TOKENS,
+    ACTIVE_TEMPERATURE,
+    LLM_PROVIDER,
+    BUYER_TURNOVER_PREVIOUS_FY,
+    ARITHMETIC_TOLERANCE_RS,
+    PO_TOLERANCE_PERCENT,
+    RETRY_WAIT_SECONDS,
+    REQUEST_DELAY_SECONDS,
+    ENABLE_RESPONSE_CACHE,
+    ENABLE_GSTIN_CACHE,
+    ENABLE_VENDOR_TDS_CACHE,
+)
 
 load_dotenv()
 
+litellm.suppress_debug_info = True
+
+# turn on litellm's in-memory cache so identical prompts don't make duplicate API calls
+# the agent sometimes calls the same tool twice when it's figuring out what to do next
+if ENABLE_RESPONSE_CACHE:
+    litellm.cache = litellm.Cache(type="local")
 
 # ============================================================
-# SETUP
+# setup
 # ============================================================
 
-# Setting up Groq client and loading config from .env
-groq_client       = Groq(api_key=os.getenv("GROQ_API_KEY"))
-MOCK_API_BASE_URL = os.getenv("MOCK_API_BASE_URL", "http://localhost:5000")
-GROQ_MODEL        = "llama-3.3-70b-versatile"
-
-# GSTIN is always 15 chars:
-# 2 digit state code + 5 letter PAN name + 4 digit PAN serial
-# + 1 letter entity type + 1 alphanumeric + Z + 1 checksum
 GSTIN_REGEX_PATTERN = r"^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$"
 
+# D1 stores the LLM result here, D2 reads from it so we only make one LLM call per invoice
+_tds_cache: dict = {}
+
+# if the same vendor appears in multiple invoices we can skip the LLM call and reuse the result
+_vendor_tds_cache: dict = {}
+
+# cache GSTIN lookups so we don't hit the mock API twice for the same GSTIN in one run
+_gstin_cache: dict = {}
+
 
 # ============================================================
-# HELPER FUNCTIONS
+# helpers
 # ============================================================
 
-def fix_ocr_errors_in_gstin(raw_gstin: str) -> str:
+_DATE_FORMATS = [
+    "%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y", "%d-%b-%Y",
+    "%d %B %Y", "%B %d, %Y", "%d/%m/%y", "%d-%m-%y",
+]
+
+def _parse_date(date_str: str):
+    """Try to parse a date string in the formats Indian invoices commonly use."""
+    if not date_str:
+        return None
+    s = date_str.strip()
+    for fmt in _DATE_FORMATS:
+        try:
+            return datetime.strptime(s, fmt)
+        except ValueError:
+            continue
+    return None
+
+
+def fix_gstin_ocr(gstin: str) -> str:
     """
-    GSTIN has specific digit-only positions (0,1 and 9-12).
-    Fixing common OCR misreads O->0 and I->1 only at those positions
-    so I don't accidentally change the letter parts of the GSTIN.
-    Example: O7AABCG5678H1Z9 becomes 07AABCG5678H1Z9
+    Fix common OCR mistakes in GSTIN at the positions that should be digits.
+    OCR often reads O as 0, I as 1, l as 1, etc. at positions 0, 1 and 9-12.
+    Example: O7AABCG5678H1Z9 becomes 07AABCG5678H1Z9.
     """
-    cleaned_gstin = raw_gstin.upper().strip()
-    gstin_chars   = list(cleaned_gstin)
-
-    # Positions 0,1 are state code digits. Positions 9-12 are PAN serial digits.
-    digit_only_positions = [0, 1, 9, 10, 11, 12]
-
-    for position in digit_only_positions:
-        if position < len(gstin_chars):
-            if gstin_chars[position] == "O": gstin_chars[position] = "0"
-            if gstin_chars[position] == "I": gstin_chars[position] = "1"
-            if gstin_chars[position] == "l": gstin_chars[position] = "1"
-
-    return "".join(gstin_chars)
+    if not gstin:
+        return ""
+    chars = list(gstin.upper().strip())
+    for pos in [0, 1, 9, 10, 11, 12]:
+        if pos < len(chars):
+            if chars[pos] == "O": chars[pos] = "0"
+            if chars[pos] == "I": chars[pos] = "1"
+            if chars[pos] == "l": chars[pos] = "1"
+    return "".join(chars)
 
 
-def fix_ocr_errors_in_pan(raw_pan: str) -> str:
-    """
-    PAN format is AAAAA9999A - positions 5-8 must be digits.
-    Same OCR fix as GSTIN but targeting PAN digit positions only.
-    Example: AABCTI234F becomes AABCT1234F
-    """
-    cleaned_pan = raw_pan.upper().strip()
-    pan_chars   = list(cleaned_pan)
-
-    # Positions 5-8 are always digits in a PAN
-    digit_only_positions = [5, 6, 7, 8]
-
-    for position in digit_only_positions:
-        if position < len(pan_chars):
-            if pan_chars[position] == "O": pan_chars[position] = "0"
-            if pan_chars[position] == "I": pan_chars[position] = "1"
-            if pan_chars[position] == "l": pan_chars[position] = "1"
-
-    return "".join(pan_chars)
-
-
-def find_vendor_in_registry(vendor_gstin: str, vendor_registry: dict) -> dict:
-    """
-    Looping through vendor_registry.json vendors array
-    to find a match by GSTIN. Returns empty dict if not found.
-    """
-    for vendor in vendor_registry.get("vendors", []):
-        if vendor.get("gstin", "").upper().strip() == vendor_gstin.upper().strip():
+def find_vendor(gstin: str, registry: dict) -> dict:
+    """Look up a vendor by GSTIN in the registry. Returns an empty dict if not found."""
+    if not gstin:
+        return {}
+    for vendor in registry.get("vendors", []):
+        if (vendor.get("gstin") or "").upper().strip() == gstin.upper().strip():
             return vendor
     return {}
 
 
-# ============================================================
-# LLM HELPER FUNCTIONS - Used BY D1 AND D2 ONLY
-# ============================================================
+def _field_similarity(a: str, b: str) -> float:
+    """How similar two strings are, from 0.0 to 1.0."""
+    return SequenceMatcher(None, str(a), str(b)).ratio()
 
-def load_file_as_text(file_path: str) -> str:
+
+def _invoice_similarity(gstin1: str, inv_num1: str, amount1: str,
+                        gstin2: str, inv_num2: str, amount2: str) -> float:
+    """Average similarity across the 3 fields we use to detect duplicate invoices."""
+    scores = [
+        _field_similarity(gstin1.upper().strip(), gstin2.upper().strip()),
+        _field_similarity(inv_num1.strip(), inv_num2.strip()),
+        _field_similarity(amount1, amount2),
+    ]
+    return sum(scores) / 3
+
+
+def call_mock_api(endpoint_key: str, payload: dict) -> dict:
     """
-    Loading a file and returning its contents as plain text.
-    Returns empty string if file not found so the LLM call still works.
+    Call the mock GSTIN API with the auth header from config.
+    Returns the response dict or an error dict if the server isn't running.
     """
-    path = Path(file_path)
-    if path.exists():
-        with open(path) as f:
-            return f.read()
-    return ""
+    url = f"{MOCK_API_BASE_URL}{MOCK_API_ENDPOINTS[endpoint_key]}"
+    try:
+        response = requests.post(url, headers=MOCK_API_HEADERS, json=payload, timeout=MOCK_API_TIMEOUT)
+        return response.json()
+    except requests.exceptions.ConnectionError:
+        return {"error": "MOCK_API_UNAVAILABLE", "message": f"Start server: python mock_api/server.py", "available": False}
+    except Exception as e:
+        return {"error": str(e), "available": False}
 
 
-def run_tds_sanity_check(
-    tds_base_amount: float,
-    tds_rate: float,
-    tds_amount_from_llm: float
-) -> tuple:
+def call_llm(prompt: str) -> str:
     """
-    Simple arithmetic check to catch LLM hallucinations on the TDS amount.
-    Just verifying base * rate / 100 = amount. Allowing Rs 1 rounding difference.
-    Returns (is_correct, expected_amount).
+    Makes an LLM call through LiteLLM. Retries automatically if we hit a rate limit.
+    Which model it uses depends on LLM_PROVIDER in the .env file.
     """
-    expected_amount = round(tds_base_amount * tds_rate / 100, 2)
-    difference      = abs(expected_amount - tds_amount_from_llm)
-    is_correct      = difference <= 1.0
-    return is_correct, expected_amount
+    # small delay before each groq call so we don't go over 30 RPM
+    if REQUEST_DELAY_SECONDS > 0:
+        time.sleep(REQUEST_DELAY_SECONDS)
+
+    for attempt, wait in enumerate(RETRY_WAIT_SECONDS, start=1):
+        try:
+            response = litellm.completion(
+                model=ACTIVE_MODEL,
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=ACTIVE_MAX_TOKENS,
+                temperature=ACTIVE_TEMPERATURE,
+                caching=ENABLE_RESPONSE_CACHE,
+            )
+            return response.choices[0].message.content.strip()
+        except Exception as e:
+            err = str(e).lower()
+            is_rate_limit = "429" in err or "rate limit" in err or "resource exhausted" in err
+            if is_rate_limit:
+                if attempt < len(RETRY_WAIT_SECONDS):
+                    print(f"  [{LLM_PROVIDER}] Rate limit hit. Waiting {wait}s (attempt {attempt}/{len(RETRY_WAIT_SECONDS)})...")
+                    time.sleep(wait)
+                else:
+                    raise Exception(f"Rate limit exceeded after {len(RETRY_WAIT_SECONDS)} retries: {e}")
+            else:
+                raise e
+    raise Exception("LLM call failed")
 
 
-def call_llm_for_tds_determination(
-    invoice: dict,
-    vendor_record: dict,
-    tds_rules_text: str,
-    buyer_turnover: int
-) -> dict:
+# maps each vendor type to which TDS sections could apply to them
+_VENDOR_TYPE_TO_SECTIONS: dict = {
+    "IT_SERVICES":           {"194J"},
+    "PROFESSIONAL_SERVICES": {"194J"},
+    "CONTRACTOR":            {"194C"},
+    "INDIVIDUAL_CONTRACTOR": {"194C"},
+    "TRANSPORT":             {"194C"},
+    "COMMISSION_AGENT":      {"194H"},
+    "BROKER":                {"194H"},
+    "RENT":                  {"194I"},
+    "GOODS_SUPPLIER":        {"194Q"},
+    "FOREIGN_VENDOR":        {"195"},
+}
+
+_DOMESTIC_COUNTRIES = {"", "india", "in"}
+
+
+def _filter_tds_sections(all_sections: list, vendor_record: dict, invoice: dict) -> list:
     """
-    Single LLM call that handles both D1 and D2 together.
-    Passing the full tds_sections.json, vendor record, and invoice as context.
-    The LLM reasons through all exceptions, special rules, and edge cases.
-    Returns a structured dict with both D1 and D2 results.
+    Figures out which TDS sections are actually relevant for this vendor and invoice,
+    so I don't have to send the entire tds_sections.json to the LLM every time.
+
+    How it picks:
+    1. map the vendor type to its likely sections
+    2. always include whatever section is explicitly set in the registry in case the vendor type is wrong
+    3. if it's a foreign vendor, only send section 195
+    4. always include 206AB because it's a rate modifier that can apply on top of any section
+    5. if the vendor type is unrecognised, send everything just to be safe
     """
-    vendor_context  = json.dumps(vendor_record, indent=2)
-    invoice_context = json.dumps(invoice, indent=2)
+    vendor_type      = (vendor_record.get("vendor_type") or "").upper().strip()
+    explicit_section = (vendor_record.get("tds_section") or "").upper().strip()
+    vendor_country   = (
+        vendor_record.get("country") or
+        invoice.get("vendor", {}).get("country") or ""
+    ).lower().strip()
 
-    prompt = f"""You are an Indian TDS compliance expert working for FinanceGuard Solutions.
+    needed: set = set()
 
-Your job is to analyze an invoice and determine:
-1. Whether TDS applies (D1)
-2. The correct TDS section, rate, base amount, and TDS amount (D2)
+    if vendor_type in _VENDOR_TYPE_TO_SECTIONS:
+        needed |= _VENDOR_TYPE_TO_SECTIONS[vendor_type]
 
-=== COMPLETE TDS RULES ===
-{tds_rules_text}
+    # always honour the registry's explicit section - catches misclassified vendors
+    if explicit_section and explicit_section not in ("N/A", "NONE"):
+        needed.add(explicit_section)
 
-=== BUYER DETAILS (FinanceGuard Solutions) ===
-Previous FY Turnover: Rs {buyer_turnover:,}
-This is important for Section 194Q which only applies if buyer turnover exceeds Rs 10 Crore.
+    # foreign vendor: 195 only - domestic sections don't apply to non-residents
+    is_foreign = (
+        vendor_type == "FOREIGN_VENDOR" or
+        (vendor_country and vendor_country not in _DOMESTIC_COUNTRIES)
+    )
+    if is_foreign:
+        needed = {"195"}
 
-=== VENDOR RECORD FROM REGISTRY ===
-{vendor_context}
+    # unknown vendor type with no explicit section - send everything so no rules get missed
+    if not needed:
+        return all_sections
 
-=== INVOICE TO ANALYZE ===
-{invoice_context}
+    # 206AB modifies the rate on any section, always include it
+    needed.add("206AB")
 
-=== INSTRUCTIONS ===
-Analyze this invoice carefully. Consider ALL of the following:
+    available = {s["section"] for s in all_sections}
+    to_include = needed & available
+    return [s for s in all_sections if s["section"] in to_include]
 
-1. SECTION DETERMINATION: Which TDS section applies based on vendor type and service nature?
 
-2. RATE DETERMINATION: What is the correct rate? Consider:
-   - Is vendor a company or individual? (affects 194C rate)
-   - Is service technical or professional? (affects 194J rate - technical=2%, professional=10%)
-   - Does vendor have a valid Lower Deduction Certificate in their vendor record?
-   - Is vendor PAN missing? (rate jumps to 20%)
-   - Is vendor flagged under 206AB in their vendor record? (rate doubles, minimum 5%)
+def _vendor_tds_key(vendor_record: dict, invoice: dict) -> str:
+    """
+    Makes a cache key for reusing TDS results across invoices from the same vendor.
+    I include the amount bracket because some TDS thresholds are amount-dependent.
+    Brackets are: low (under 30k), mid (under 1L), high (over 1L).
+    """
+    amount = float(invoice.get("total_amount", 0))
+    bracket = "low" if amount <= 30_000 else "mid" if amount <= 100_000 else "high"
+    return "|".join([
+        (vendor_record.get("vendor_id") or vendor_record.get("vendor_type") or "UNKNOWN"),
+        str(vendor_record.get("section_206ab_applicable", False)),
+        str(bool(vendor_record.get("lower_deduction_cert"))),
+        (vendor_record.get("country") or ""),
+        bracket,
+    ])
 
-3. BASE AMOUNT: What amount should TDS be calculated on?
-   - For 194I (rent): TDS on GROSS amount including GST
-   - For all other sections: TDS on SUBTOTAL excluding GST
 
-4. THRESHOLD CHECK: Is the invoice amount above the TDS threshold for this section?
+def get_tds_from_llm(invoice: dict, vendor_record: dict) -> dict:
+    """
+    This is the single LLM call that powers both D1 and D2.
+    D1 calls this and the result gets cached. D2 reads from that cache so there's no
+    second LLM call. If the same vendor appeared in a previous invoice, the cross-invoice
+    cache skips the LLM call entirely.
 
-5. EXCEPTIONS - Check for these carefully:
-   - GTA (transport vendor) paying GST under forward charge means 194C TDS is exempt
-   - Foreign vendor means Section 195, check DTAA country for reduced rate
-   - 194Q only applies if buyer turnover exceeds Rs 10 Crore (it does here at Rs {buyer_turnover:,})
-   - LDC only valid for sections 194C, 194J, 194I, 194H - not 194Q or 195
-   - 206AB does not apply to sections 192, 192A, 194B, 194BB, 194LBC, 194N
+    I only send the TDS sections relevant to this vendor type, not the whole file.
+    """
+    invoice_id = invoice.get("invoice_id", "unknown")
 
-6. COMPOSITE OR MIXED SUPPLIES: If invoice has multiple line items with different
-   service types, determine the principal supply and apply that section.
+    # D2 will just read this from the cache
+    if invoice_id in _tds_cache:
+        return _tds_cache[invoice_id]
 
-7. RCM: If this is a Reverse Charge Mechanism invoice, the buyer pays GST.
-   Note this in your reasoning.
+    # same vendor appeared in a previous invoice, reuse that result
+    if ENABLE_VENDOR_TDS_CACHE:
+        vkey = _vendor_tds_key(vendor_record, invoice)
+        if vkey in _vendor_tds_cache:
+            cached = _vendor_tds_cache[vkey]
+            _tds_cache[invoice_id] = cached
+            print(f"  [TDS cache] Reusing vendor TDS result for key: {vkey}")
+            return cached
 
-Respond ONLY with valid JSON and nothing else. No explanation outside the JSON:
+    # Build trimmed TDS rules context - only fields the LLM needs
+    tds_context = {}
+    if TDS_SECTIONS_FILE.exists():
+        with open(TDS_SECTIONS_FILE) as f:
+            raw = json.load(f)
+
+        all_trimmed_sections = []
+        keep_rate_fields = ["rate", "rate_individual", "rate_company",
+                            "rate_professional", "rate_technical",
+                            "rate_building", "rate_machinery", "rate_no_pan"]
+        for s in raw.get("tds_sections", []):
+            entry = {k: s[k] for k in ["section", "applicable_to", "tds_on_gst",
+                                        "notes", "exceptions", "classification_rules",
+                                        "sub_sections", "dtaa_countries"]
+                     if s.get(k) is not None}
+            entry["threshold"] = s.get("threshold") or s.get("single_payment_threshold")
+            for rf in keep_rate_fields:
+                if rf in s:
+                    entry[rf] = s[rf]
+            all_trimmed_sections.append(entry)
+
+        tds_context = {
+            "tds_sections": _filter_tds_sections(all_trimmed_sections, vendor_record, invoice),
+            "special_rules": raw.get("special_rules", {})
+        }
+
+    # Build trimmed invoice and vendor - only TDS-relevant fields
+    v = invoice.get("vendor", {})
+    trimmed_invoice = {
+        "invoice_id":    invoice.get("invoice_id"),
+        "invoice_date":  invoice.get("invoice_date"),
+        "total_amount":  invoice.get("total_amount", 0),
+        "subtotal":      invoice.get("subtotal", 0),
+        "gst_under_rcm": invoice.get("gst_under_rcm", False),
+        "igst_amount":   invoice.get("igst_amount", 0),
+        "cgst_amount":   invoice.get("cgst_amount", 0),
+        "vendor":        {"name": v.get("name"), "gstin": v.get("gstin"),
+                          "pan": v.get("pan"), "country": v.get("country")},
+        "line_items":    [{"description": i.get("description"), "amount": i.get("amount")}
+                          for i in invoice.get("line_items", [])]
+    }
+
+    trimmed_vendor = {k: vendor_record.get(k) for k in [
+        "vendor_id", "legal_name", "vendor_type", "tds_section", "pan", "status",
+        "lower_deduction_cert", "section_206ab_applicable",
+        "withholding_tax_rate", "tax_treaty_country", "form_10f_available", "country"
+    ] if vendor_record.get(k) is not None}
+
+    prompt = f"""You are an Indian TDS compliance expert.
+
+TDS RULES:
+{json.dumps(tds_context, separators=(',', ': '))}
+
+BUYER TURNOVER: Rs {BUYER_TURNOVER_PREVIOUS_FY:,} (above Rs 10 Crore, so 194Q applies)
+
+VENDOR:
+{json.dumps(trimmed_vendor, indent=1)}
+
+INVOICE:
+{json.dumps(trimmed_invoice, indent=1)}
+
+Determine TDS for this invoice. Check all of these:
+- Which section applies for this vendor type and service?
+- Company=2% or individual=1% for 194C
+- Technical=2% or professional=10% for 194J
+- Lower deduction certificate in vendor record reduces the rate
+- section_206ab_applicable=true in vendor record doubles rate, minimum 5%
+- GTA transport vendor charging GST forward = 194C exempt
+- 194I rent uses GROSS amount including GST for TDS base, all others use subtotal
+- Foreign vendor = section 195, use DTAA rate if country available
+- No PAN = 20% rate
+- LDC valid for 194C, 194J, 194I, 194H only
+
+Respond ONLY with this JSON, no other text:
 {{
   "d1": {{
     "tds_applicable": true or false,
-    "tds_section": "194C or 194J or 194H or 194I or 194Q or 195 or N/A",
+    "tds_section": "194C/194J/194H/194I/194Q/195/N/A",
     "confidence": 0.0 to 1.0,
-    "reasoning": "clear explanation of why TDS applies or does not"
+    "reasoning": "one sentence"
   }},
   "d2": {{
-    "tds_section": "same section as d1 or N/A",
+    "tds_section": "same as d1",
     "tds_rate": 0.0,
     "tds_base_amount": 0.0,
     "tds_amount": 0.0,
-    "base_amount_note": "explain whether subtotal or gross was used and why",
-    "special_rules_applied": ["list any special rules like LDC, 206AB, GTA exception, no-PAN"],
-    "vendor_classification": "company or individual - relevant for 194C",
-    "service_classification": "technical or professional - relevant for 194J",
+    "base_amount_note": "subtotal or gross and why",
+    "special_rules_applied": [],
+    "vendor_classification": "company or individual",
+    "service_classification": "technical or professional or N/A",
     "confidence": 0.0 to 1.0,
-    "reasoning": "step by step explanation of how you arrived at this rate and amount"
+    "reasoning": "step by step"
   }}
 }}"""
 
+    # Default fallback if LLM fails
+    fallback = lambda reason, code: {
+        "d1": {"tds_applicable": False, "tds_section": code, "confidence": 0.10, "reasoning": reason},
+        "d2": {"tds_section": code, "tds_rate": 0.0, "tds_base_amount": 0.0, "tds_amount": 0.0,
+               "base_amount_note": "", "special_rules_applied": [], "vendor_classification": "",
+               "service_classification": "", "confidence": 0.10, "reasoning": reason}
+    }
+
     try:
-        llm_response = groq_client.chat.completions.create(
-            model=GROQ_MODEL,
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=800,
-            temperature=0.1
-        )
-        raw_text = llm_response.choices[0].message.content.strip()
-        # Stripping markdown fences if LLM wrapped the JSON
-        raw_text = raw_text.replace("```json", "").replace("```", "").strip()
-        return json.loads(raw_text)
+        raw = call_llm(prompt).replace("```json", "").replace("```", "").strip()
+        result = json.loads(raw)
+    except json.JSONDecodeError as e:
+        result = fallback(f"JSON parse failed: {e}", "UNKNOWN")
+    except Exception as e:
+        result = fallback(f"LLM call failed: {e}", "ERROR")
 
-    except json.JSONDecodeError as parse_error:
-        # LLM returned something that is not valid JSON
-        return {
-            "error": f"LLM returned invalid JSON: {str(parse_error)}",
-            "d1": {
-                "tds_applicable": False,
-                "tds_section":    "UNKNOWN",
-                "confidence":     0.20,
-                "reasoning":      "LLM response could not be parsed"
-            },
-            "d2": {
-                "tds_section":           "UNKNOWN",
-                "tds_rate":              0.0,
-                "tds_base_amount":       0.0,
-                "tds_amount":            0.0,
-                "base_amount_note":      "Could not determine",
-                "special_rules_applied": [],
-                "vendor_classification": "",
-                "service_classification": "",
-                "confidence":            0.20,
-                "reasoning":             "LLM response could not be parsed"
-            }
-        }
+    _tds_cache[invoice_id] = result
+    if ENABLE_VENDOR_TDS_CACHE:
+        _vendor_tds_cache[_vendor_tds_key(vendor_record, invoice)] = result
+    return result
 
-    except Exception as llm_error:
-        # LLM call failed entirely
-        return {
-            "error": str(llm_error),
-            "d1": {
-                "tds_applicable": False,
-                "tds_section":    "ERROR",
-                "confidence":     0.10,
-                "reasoning":      f"LLM call failed: {str(llm_error)}"
-            },
-            "d2": {
-                "tds_section":           "ERROR",
-                "tds_rate":              0.0,
-                "tds_base_amount":       0.0,
-                "tds_amount":            0.0,
-                "base_amount_note":      "Could not determine",
-                "special_rules_applied": [],
-                "vendor_classification": "",
-                "service_classification": "",
-                "confidence":            0.10,
-                "reasoning":             f"LLM call failed: {str(llm_error)}"
-            }
-        }
+
+def clear_tds_cache(invoice_id: str):
+    """Call this after each invoice is done so the per-invoice cache doesn't grow forever."""
+    _tds_cache.pop(invoice_id, None)
 
 
 # ============================================================
-# CATEGORY A - DOCUMENT AUTHENTICITY
+# A - document authenticity
 # ============================================================
 
 @tool("Check Invoice Number Format")
 def check_invoice_format(invoice_number: str) -> str:
-    """Im using this tool to validate the format of an invoice number.
+    """Use this tool to check if the invoice number looks like a valid Indian invoice number (A1 check).
     Input: invoice_number as a plain string.
-    Returns: JSON string with check_id A1, passed, confidence, and finding."""
+    Returns: JSON with check_id A1, passed, confidence, finding."""
     try:
-        cleaned_invoice_number = invoice_number.strip()
+        if not invoice_number:
+            return json.dumps({"check_id": "A1", "passed": False, "confidence": 0.99,
+                               "finding": "Invoice number is missing or null"})
+        num = invoice_number.strip()
 
-        # Indian invoice numbers come in many formats so checking against
-        # multiple common patterns instead of one strict pattern
-        valid_invoice_patterns = [
+        # Indian invoice numbers don't follow one standard format so I check against a few patterns
+        patterns = [
             r"^[A-Z0-9]{2,10}[-/][A-Z0-9]{2,10}[-/][0-9]{4}[-/][0-9]{3,8}$",
             r"^[A-Z]{2,5}[-/][0-9]{4}[-/][0-9]{4,6}$",
             r"^[A-Z0-9/-]{5,30}$",
         ]
-
-        format_is_valid = any(
-            re.match(pattern, cleaned_invoice_number.upper())
-            for pattern in valid_invoice_patterns
-        )
+        is_valid = any(re.match(p, num.upper()) for p in patterns)
 
         return json.dumps({
             "check_id":   "A1",
-            "passed":     format_is_valid,
+            "passed":     is_valid,
             "confidence": 0.90,
-            "finding": (
-                f"Invoice number '{cleaned_invoice_number}' has a valid format"
-                if format_is_valid
-                else f"Invoice number '{cleaned_invoice_number}' does not match any known Indian invoice format"
-            ),
-            "evidence": {"invoice_number": cleaned_invoice_number}
+            "finding":    f"Invoice number '{num}' format {'valid' if is_valid else 'INVALID'}",
+            "evidence":   {"invoice_number": num}
         })
-
-    except Exception as error:
-        return json.dumps({
-            "check_id": "A1", "passed": False, "confidence": 0.20,
-            "finding":  f"Could not check invoice format: {str(error)}"
-        })
+    except Exception as e:
+        return json.dumps({"check_id": "A1", "passed": False, "confidence": 0.20,
+                           "finding": f"Error: {e}"})
 
 
 @tool("Check for Duplicate Invoice")
-def check_duplicate_invoice(
-    invoice_number: str,
-    vendor_gstin: str,
-    already_seen_invoices_json: str
-) -> str:
-    """Im using this tool to detect if this invoice has already been processed in this batch.
-    Building a unique key as GSTIN::invoice_number and checking against the seen list.
-    Input: invoice_number string, vendor_gstin string,
-           already_seen_invoices_json as a JSON array of GSTIN::invoice_number strings.
-    Returns: JSON string with check_id A2, passed, confidence, and finding."""
+def check_duplicate_invoice(invoice_number: str, vendor_gstin: str, seen_invoices_json: str,
+                            invoice_amount: str = "0", invoice_date: str = "") -> str:
+    """Use this tool to check if this invoice has been seen before in this batch (A2 check).
+    Stores each seen invoice as GSTIN::invoice_number::amount::date.
+    Only compares entries within a 365-day window. Flags exact duplicates and near-duplicates above 95% similarity.
+    Input: invoice_number, vendor_gstin, seen_invoices_json as a JSON array of those key strings,
+    invoice_amount as a plain string (total_amount from invoice),
+    invoice_date as YYYY-MM-DD string (invoice_date from invoice).
+    Returns: JSON with check_id A2, passed, confidence, finding."""
     try:
-        already_seen_list = json.loads(already_seen_invoices_json) if already_seen_invoices_json else []
+        if not vendor_gstin or not invoice_number:
+            return json.dumps({"check_id": "A2", "passed": False, "confidence": 0.50,
+                               "finding": "invoice_number or vendor_gstin is missing - cannot check duplicates"})
 
-        # Using GSTIN::invoice_number as unique key
-        # Same invoice number from different vendors is allowed
-        unique_invoice_key   = f"{vendor_gstin.upper().strip()}::{invoice_number.strip()}"
-        invoice_is_duplicate = unique_invoice_key in already_seen_list
+        seen       = json.loads(seen_invoices_json) if seen_invoices_json else []
+        gstin_c    = (vendor_gstin or "").strip().upper()
+        inv_c      = (invoice_number or "").strip()
+        amount_c   = str(invoice_amount or "0").strip()
+
+        current_date = _parse_date(invoice_date)
+
+        is_exact   = False
+        near_match = None   # {"similarity": float, "entry": str, "seen_inv_num": str}
+
+        for entry in seen:
+            parts = entry.split("::")
+            if len(parts) < 2:
+                continue
+            s_gstin   = parts[0]
+            s_inv_num = parts[1]
+            s_amount  = parts[2] if len(parts) >= 3 else "0"
+            s_date    = parts[3].strip() if len(parts) >= 4 else ""
+
+            # 365-day window gate: skip entries outside the window when both dates are known
+            if current_date and s_date:
+                seen_date = _parse_date(s_date)
+                if seen_date and abs((current_date - seen_date).days) > 365:
+                    continue
+
+            # Exact match: all 3 fields identical
+            if s_gstin == gstin_c and s_inv_num == inv_c and s_amount == amount_c:
+                is_exact = True
+                break
+
+            # Near-duplicate: average similarity across all 3 fields >= 0.95
+            sim = _invoice_similarity(gstin_c, inv_c, amount_c, s_gstin, s_inv_num, s_amount)
+            if sim >= 0.95 and (near_match is None or sim > near_match["similarity"]):
+                near_match = {"similarity": round(sim, 3), "entry": entry, "seen_inv_num": s_inv_num}
+
+        if is_exact:
+            return json.dumps({
+                "check_id":   "A2",
+                "passed":     False,
+                "confidence": 1.00,
+                "finding":    "EXACT DUPLICATE - same vendor, invoice number, and amount already seen in this batch",
+                "evidence":   {"type": "exact", "gstin": gstin_c,
+                               "invoice_number": inv_c, "total_seen": len(seen)}
+            })
+
+        if near_match:
+            return json.dumps({
+                "check_id":   "A2",
+                "passed":     False,
+                "confidence": 0.90,
+                "finding":    (f"NEAR-DUPLICATE - {near_match['similarity']*100:.1f}% similar to "
+                               f"previously seen invoice {near_match['seen_inv_num']} "
+                               f"(threshold 95% across vendor_gstin, invoice_number, invoice_amount)"),
+                "evidence":   {"type": "near_duplicate", "similarity": near_match["similarity"],
+                               "matched_entry": near_match["entry"], "total_seen": len(seen)}
+            })
 
         return json.dumps({
             "check_id":   "A2",
-            "passed":     not invoice_is_duplicate,
+            "passed":     True,
             "confidence": 1.00,
-            "finding": (
-                "DUPLICATE DETECTED - this invoice has already been processed"
-                if invoice_is_duplicate
-                else "No duplicate found - this is a new invoice"
-            ),
-            "evidence": {
-                "unique_key":   unique_invoice_key,
-                "is_duplicate": invoice_is_duplicate,
-                "total_seen":   len(already_seen_list)
-            }
+            "finding":    "No duplicate found",
+            "evidence":   {"gstin": gstin_c, "invoice_number": inv_c, "total_seen": len(seen)}
         })
-
-    except Exception as error:
-        return json.dumps({
-            "check_id": "A2", "passed": False, "confidence": 0.20,
-            "finding":  f"Could not check for duplicates: {str(error)}"
-        })
+    except Exception as e:
+        return json.dumps({"check_id": "A2", "passed": False, "confidence": 0.20,
+                           "finding": f"Error: {e}"})
 
 
 # ============================================================
-# CATEGORY B - GST COMPLIANCE
+# B - GST compliance
 # ============================================================
 
 @tool("Validate GSTIN Format and Active Status")
 def check_gstin_format(vendor_gstin: str) -> str:
-    """Im using this tool to validate a vendor GSTIN.
-    First fixing OCR errors, then checking 15-char format, then calling Mock API for active status.
+    """Use this tool to validate the vendor GSTIN (B1 check).
+    Fixes OCR errors first, then checks the format, then checks the mock API for active status.
     Input: vendor_gstin as a plain string.
-    Returns: JSON string with check_id B1, passed, confidence, and finding."""
+    Returns: JSON with check_id B1, passed, confidence, finding."""
     try:
-        # Fixing OCR errors before doing any validation
-        gstin_after_ocr_fix   = fix_ocr_errors_in_gstin(vendor_gstin)
-        gstin_format_is_valid = bool(re.match(GSTIN_REGEX_PATTERN, gstin_after_ocr_fix))
+        if not vendor_gstin:
+            return json.dumps({"check_id": "B1", "passed": False, "confidence": 0.99,
+                               "finding": "vendor_gstin is missing or null"})
+        gstin = fix_gstin_ocr(vendor_gstin)
 
-        if not gstin_format_is_valid:
+        # format check
+        if not re.match(GSTIN_REGEX_PATTERN, gstin):
             return json.dumps({
                 "check_id":   "B1",
                 "passed":     False,
                 "confidence": 0.98,
-                "finding":    f"GSTIN '{gstin_after_ocr_fix}' does not match the 15-char format",
-                "evidence": {
-                    "original_gstin":   vendor_gstin,
-                    "normalized_gstin": gstin_after_ocr_fix,
-                    "format_valid":     False
-                }
+                "finding":    f"GSTIN '{gstin}' does not match the 15-char format",
+                "evidence":   {"original": vendor_gstin, "normalized": gstin}
             })
 
-        # Calling Mock API to check if GSTIN is currently active
-        try:
-            api_response      = requests.post(
-                f"{MOCK_API_BASE_URL}/api/gst/validate-gstin",
-                json={"gstin": gstin_after_ocr_fix},
-                timeout=5
-            )
-            api_result        = api_response.json()
-            gstin_is_active   = api_result.get("valid", True)
-            gstin_status_text = api_result.get("status", "UNKNOWN")
-            api_was_available = True
+        # check active status via the mock API, use the cache if we already looked this one up
+        if ENABLE_GSTIN_CACHE and gstin in _gstin_cache:
+            return _gstin_cache[gstin]
 
-        except Exception:
-            # API unreachable - not failing the check but lowering confidence
-            gstin_is_active   = True
-            gstin_status_text = "API_UNAVAILABLE"
-            api_was_available = False
+        api    = call_mock_api("validate_gstin", {"gstin": gstin})
+        api_ok = "available" not in api or api.get("available", True)
+        status = api.get("status", "UNKNOWN" if not api_ok else "ACTIVE")
+        active = api.get("valid", True) and status not in ["SUSPENDED", "CANCELLED", "INACTIVE"]
+        passed = active
 
-        overall_passed = gstin_format_is_valid and gstin_is_active
-        confidence     = 0.95 if api_was_available else 0.70
-
-        return json.dumps({
+        result = json.dumps({
             "check_id":   "B1",
-            "passed":     overall_passed,
-            "confidence": confidence,
-            "finding": (
-                f"GSTIN '{gstin_after_ocr_fix}' is valid and status is {gstin_status_text}"
-                if overall_passed
-                else f"GSTIN '{gstin_after_ocr_fix}' failed - status is {gstin_status_text}"
-            ),
-            "evidence": {
-                "original_gstin":   vendor_gstin,
-                "normalized_gstin": gstin_after_ocr_fix,
-                "format_valid":     gstin_format_is_valid,
-                "api_status":       gstin_status_text,
-                "api_available":    api_was_available
-            }
+            "passed":     passed,
+            "confidence": 0.95 if api_ok else 0.70,
+            "finding":    f"GSTIN '{gstin}' is {'valid, status: ' + status if passed else 'FAILED - status: ' + status}",
+            "evidence":   {"original": vendor_gstin, "normalized": gstin,
+                           "api_status": status, "api_available": api_ok,
+                           "legal_name": api.get("legal_name", "")}
         })
 
-    except Exception as error:
-        return json.dumps({
-            "check_id": "B1", "passed": False, "confidence": 0.20,
-            "finding":  f"Could not validate GSTIN: {str(error)}"
-        })
+        if ENABLE_GSTIN_CACHE and api_ok:
+            _gstin_cache[gstin] = result
+
+        return result
+    except Exception as e:
+        return json.dumps({"check_id": "B1", "passed": False, "confidence": 0.20,
+                           "finding": f"Error: {e}"})
 
 
 @tool("Check GST Rate Consistency CGST SGST IGST")
 def check_gst_rate_consistency(invoice_json: str) -> str:
-    """Im using this tool to check if the correct type of GST has been applied.
-    Indian rule: inter-state uses IGST only, intra-state uses CGST plus SGST. Never both.
+    """Use this tool to check whether the right GST type was used on this invoice (B7 check).
+    Inter-state transactions should use IGST only. Intra-state should use CGST plus SGST. Never both together.
     Input: full invoice as a JSON string.
-    Returns: JSON string with check_id B7, passed, confidence, and finding."""
+    Returns: JSON with check_id B7, passed, confidence, finding."""
     try:
-        invoice = json.loads(invoice_json)
+        if not invoice_json or not invoice_json.strip():
+            return json.dumps({"check_id": "B7", "passed": False, "confidence": 0.20,
+                               "finding": "invoice_json is empty - pass the full invoice JSON string from the extractor output"})
+        inv  = json.loads(invoice_json)
+        cgst = float(inv.get("cgst_rate", 0))
+        sgst = float(inv.get("sgst_rate", 0))
+        igst = float(inv.get("igst_rate", 0))
+        cgst_amt = float(inv.get("cgst_amount", 0))
+        sgst_amt = float(inv.get("sgst_amount", 0))
 
-        cgst_rate   = float(invoice.get("cgst_rate",   0))
-        sgst_rate   = float(invoice.get("sgst_rate",   0))
-        igst_rate   = float(invoice.get("igst_rate",   0))
-        cgst_amount = float(invoice.get("cgst_amount", 0))
-        sgst_amount = float(invoice.get("sgst_amount", 0))
+        has_cgst_sgst = cgst > 0 or sgst > 0
+        has_igst      = igst > 0
 
-        invoice_has_cgst_or_sgst = (cgst_rate > 0 or sgst_rate > 0)
-        invoice_has_igst         = (igst_rate > 0)
-        rounding_tolerance       = 0.01
+        # RCM means the buyer pays the GST, so the rate check doesn't apply here
+        if inv.get("gst_under_rcm") or inv.get("rcm_applicable"):
+            return json.dumps({"check_id": "B7", "passed": True, "confidence": 0.95,
+                               "finding": "RCM invoice - buyer pays GST, rate check skipped",
+                               "evidence": {"rcm": True}})
 
-        # RCM invoices - buyer pays GST so rate check does not apply here
-        if invoice.get("gst_under_rcm") or invoice.get("rcm_applicable"):
-            return json.dumps({
-                "check_id": "B7", "passed": True, "confidence": 0.95,
-                "finding":  "RCM invoice - GST paid by buyer, rate check not applicable",
-                "evidence": {"rcm": True}
-            })
+        # foreign vendors don't charge Indian GST
+        vendor = inv.get("vendor", {})
+        if not vendor.get("gstin") and vendor.get("country"):
+            return json.dumps({"check_id": "B7", "passed": True, "confidence": 0.95,
+                               "finding": "Foreign vendor - Indian GST not applicable",
+                               "evidence": {"foreign_vendor": True}})
 
-        # Foreign vendors do not charge Indian GST
-        vendor_info = invoice.get("vendor", {})
-        if not vendor_info.get("gstin") and vendor_info.get("country"):
-            return json.dumps({
-                "check_id": "B7", "passed": True, "confidence": 0.95,
-                "finding":  "Foreign vendor - Indian GST not applicable",
-                "evidence": {"foreign_vendor": True}
-            })
+        # mixing CGST/SGST and IGST on the same invoice is always wrong
+        if has_cgst_sgst and has_igst:
+            return json.dumps({"check_id": "B7", "passed": False, "confidence": 0.99,
+                               "finding": "INVALID - invoice mixes CGST/SGST with IGST",
+                               "evidence": {"cgst_rate": cgst, "sgst_rate": sgst, "igst_rate": igst}})
 
-        # Both CGST/SGST and IGST present at same time - this is invalid
-        if invoice_has_cgst_or_sgst and invoice_has_igst:
-            return json.dumps({
-                "check_id":   "B7",
-                "passed":     False,
-                "confidence": 0.99,
-                "finding":    "INVALID - invoice has both CGST/SGST and IGST which cannot be mixed",
-                "evidence":   {"cgst_rate": cgst_rate, "sgst_rate": sgst_rate, "igst_rate": igst_rate}
-            })
+        # intra-state: CGST and SGST must be equal
+        if has_cgst_sgst:
+            passed = abs(cgst - sgst) < 0.01 and abs(cgst_amt - sgst_amt) < 1.0
+            return json.dumps({"check_id": "B7", "passed": passed, "confidence": 0.97,
+                               "finding": f"Intra-state: CGST {cgst}% {'equals' if passed else 'does NOT equal'} SGST {sgst}%",
+                               "evidence": {"type": "intra-state", "cgst_rate": cgst, "sgst_rate": sgst}})
 
-        # Intra-state: CGST must equal SGST in both rate and amount
-        if invoice_has_cgst_or_sgst:
-            rates_are_equal   = abs(cgst_rate - sgst_rate) < rounding_tolerance
-            amounts_are_equal = abs(cgst_amount - sgst_amount) < 1.0
-            check_passed      = rates_are_equal and amounts_are_equal
+        # inter-state: IGST only
+        if has_igst:
+            return json.dumps({"check_id": "B7", "passed": True, "confidence": 0.97,
+                               "finding": f"Inter-state: IGST at {igst}% applied correctly",
+                               "evidence": {"type": "inter-state", "igst_rate": igst}})
 
-            return json.dumps({
-                "check_id":   "B7",
-                "passed":     check_passed,
-                "confidence": 0.97,
-                "finding": (
-                    f"Intra-state: CGST {cgst_rate}% equals SGST {sgst_rate}% - correct"
-                    if check_passed
-                    else f"Intra-state: CGST {cgst_rate}% does not equal SGST {sgst_rate}%"
-                ),
-                "evidence": {
-                    "invoice_type": "intra-state",
-                    "cgst_rate":    cgst_rate,
-                    "sgst_rate":    sgst_rate
-                }
-            })
-
-        # Inter-state: only IGST present which is correct
-        if invoice_has_igst:
-            return json.dumps({
-                "check_id":   "B7",
-                "passed":     True,
-                "confidence": 0.97,
-                "finding":    f"Inter-state: IGST at {igst_rate}% applied correctly",
-                "evidence":   {"invoice_type": "inter-state", "igst_rate": igst_rate}
-            })
-
-        # No GST at all - flagging for review, could be exempt
-        return json.dumps({
-            "check_id":   "B7",
-            "passed":     True,
-            "confidence": 0.70,
-            "finding":    "No GST on this invoice - verify if exempt",
-            "evidence":   {"cgst_rate": cgst_rate, "sgst_rate": sgst_rate, "igst_rate": igst_rate}
-        })
-
-    except Exception as error:
-        return json.dumps({
-            "check_id": "B7", "passed": False, "confidence": 0.20,
-            "finding":  f"Could not check GST consistency: {str(error)}"
-        })
+        # no GST at all - could be an exempt supply
+        return json.dumps({"check_id": "B7", "passed": True, "confidence": 0.70,
+                           "finding": "No GST on invoice - verify if exempt",
+                           "evidence": {"cgst": cgst, "sgst": sgst, "igst": igst}})
+    except Exception as e:
+        return json.dumps({"check_id": "B7", "passed": False, "confidence": 0.20,
+                           "finding": f"Error: {e}"})
 
 
 # ============================================================
-# CATEGORY C - ARITHMETIC CHECKS
+# C - arithmetic
 # ============================================================
 
 @tool("Check Line Item Arithmetic")
 def check_line_item_arithmetic(line_items_json: str) -> str:
-    """Im using this tool to verify quantity multiplied by rate equals amount for each line item.
+    """Use this tool to verify that quantity x rate = amount for every line item (C1 check).
+    Allows Rs 1 rounding tolerance.
     Input: line_items array as a JSON string.
-    Returns: JSON string with check_id C1, passed, confidence, errors list, and finding."""
+    Returns: JSON with check_id C1, passed, confidence, errors list, finding."""
     try:
-        line_items = json.loads(line_items_json)
+        if not line_items_json or not line_items_json.strip():
+            return json.dumps({"check_id": "C1", "passed": False, "confidence": 0.20,
+                               "finding": "line_items_json is empty - pass the line_items array as a JSON string"})
+        items = json.loads(line_items_json)
+        if not items:
+            return json.dumps({"check_id": "C1", "passed": False, "confidence": 0.50,
+                               "finding": "No line items found"})
 
-        if not line_items:
-            return json.dumps({
-                "check_id": "C1", "passed": False, "confidence": 0.50,
-                "finding":  "No line items found in invoice"
-            })
-
-        arithmetic_errors  = []
-        rounding_tolerance = 1.0  # Allowing Rs 1 difference for rounding
-
-        for line_number, line_item in enumerate(line_items, start=1):
+        errors = []
+        for i, item in enumerate(items, start=1):
             try:
-                quantity        = float(line_item.get("quantity", 0))
-                unit_rate       = float(line_item.get("rate", line_item.get("unit_price", 0)))
-                stated_amount   = float(line_item.get("amount", 0))
-                expected_amount = round(quantity * unit_rate, 2)
-                difference      = abs(expected_amount - stated_amount)
+                qty  = float(item.get("quantity", 0))
+                rate = float(item.get("rate", item.get("unit_price", 0)))
+                amt  = float(item.get("amount", 0))
+                exp  = round(qty * rate, 2)
+                if abs(exp - amt) > ARITHMETIC_TOLERANCE_RS:
+                    errors.append({"line": i, "desc": str(item.get("description", ""))[:50],
+                                   "expected": exp, "actual": amt, "diff": round(amt - exp, 2)})
+            except (ValueError, TypeError) as e:
+                errors.append({"line": i, "error": str(e)})
 
-                if difference > rounding_tolerance:
-                    arithmetic_errors.append({
-                        "line_number":     line_number,
-                        "description":     str(line_item.get("description", ""))[:60],
-                        "quantity":        quantity,
-                        "unit_rate":       unit_rate,
-                        "expected_amount": expected_amount,
-                        "stated_amount":   stated_amount,
-                        "difference":      round(stated_amount - expected_amount, 2)
-                    })
-
-            except (ValueError, TypeError) as parse_error:
-                arithmetic_errors.append({
-                    "line_number": line_number,
-                    "error":       f"Could not parse line item: {str(parse_error)}"
-                })
-
-        check_passed = len(arithmetic_errors) == 0
-
+        passed = len(errors) == 0
         return json.dumps({
             "check_id":   "C1",
-            "passed":     check_passed,
+            "passed":     passed,
             "confidence": 1.00,
-            "finding": (
-                f"All {len(line_items)} line items have correct arithmetic"
-                if check_passed
-                else f"{len(arithmetic_errors)} line item(s) have arithmetic errors"
-            ),
-            "evidence": {
-                "total_line_items":  len(line_items),
-                "arithmetic_errors": arithmetic_errors
-            }
+            "finding":    f"All {len(items)} line items correct" if passed else f"{len(errors)} arithmetic error(s)",
+            "evidence":   {"total_items": len(items), "errors": errors}
         })
-
-    except Exception as error:
-        return json.dumps({
-            "check_id": "C1", "passed": False, "confidence": 0.20,
-            "finding":  f"Could not check line item arithmetic: {str(error)}"
-        })
+    except Exception as e:
+        return json.dumps({"check_id": "C1", "passed": False, "confidence": 0.20,
+                           "finding": f"Error: {e}"})
 
 
 @tool("Check Subtotal Matches Sum of Line Items")
 def check_subtotal_matches_line_items(invoice_json: str) -> str:
-    """Im using this tool to verify the stated subtotal equals the sum of all line item amounts.
+    """Use this tool to check that the subtotal equals the sum of all line item amounts (C2 check).
+    Allows Rs 1 rounding tolerance.
     Input: full invoice as a JSON string.
-    Returns: JSON string with check_id C2, passed, confidence, and finding."""
+    Returns: JSON with check_id C2, passed, confidence, finding."""
     try:
-        invoice            = json.loads(invoice_json)
-        line_items         = invoice.get("line_items", [])
-        stated_subtotal    = float(invoice.get("subtotal", 0))
-        rounding_tolerance = 1.0
-
-        # Summing all line item amounts and comparing to the stated subtotal
-        calculated_subtotal = round(
-            sum(float(item.get("amount", 0)) for item in line_items), 2
-        )
-        difference   = round(abs(calculated_subtotal - stated_subtotal), 2)
-        check_passed = difference <= rounding_tolerance
+        if not invoice_json or not invoice_json.strip():
+            return json.dumps({"check_id": "C2", "passed": False, "confidence": 0.20,
+                               "finding": "invoice_json is empty - pass the full invoice JSON string from the extractor output"})
+        inv        = json.loads(invoice_json)
+        items      = inv.get("line_items", [])
+        stated     = float(inv.get("subtotal", 0))
+        calculated = round(sum(float(i.get("amount", 0)) for i in items), 2)
+        diff       = round(abs(calculated - stated), 2)
+        passed     = diff <= ARITHMETIC_TOLERANCE_RS
 
         return json.dumps({
             "check_id":   "C2",
-            "passed":     check_passed,
+            "passed":     passed,
             "confidence": 1.00,
-            "finding": (
-                f"Subtotal matches: Rs {calculated_subtotal:,.2f}"
-                if check_passed
-                else f"Subtotal mismatch - calculated Rs {calculated_subtotal:,.2f} but invoice says Rs {stated_subtotal:,.2f} (diff Rs {difference:,.2f})"
-            ),
-            "evidence": {
-                "calculated_subtotal": calculated_subtotal,
-                "stated_subtotal":     stated_subtotal,
-                "difference":          difference,
-                "total_line_items":    len(line_items)
-            }
+            "finding":    f"Subtotal {'matches' if passed else 'MISMATCH'}: calculated Rs {calculated:,.2f} vs stated Rs {stated:,.2f}",
+            "evidence":   {"calculated": calculated, "stated": stated, "diff": diff, "items": len(items)}
         })
-
-    except Exception as error:
-        return json.dumps({
-            "check_id": "C2", "passed": False, "confidence": 0.20,
-            "finding":  f"Could not check subtotal: {str(error)}"
-        })
+    except Exception as e:
+        return json.dumps({"check_id": "C2", "passed": False, "confidence": 0.20,
+                           "finding": f"Error: {e}"})
 
 
 # ============================================================
-# CATEGORY D - TDS COMPLIANCE
-# D1 and D2 are fully LLM-powered.
-# One LLM call per invoice covers both checks together.
-# The LLM reads tds_sections.json and reasons through all
-# exceptions, special rules, and edge cases naturally.
+# D - TDS compliance
+# D1 and D2 share one LLM call. D1 runs it and caches the result. D2 reads from the cache.
 # ============================================================
 
 @tool("Check TDS Applicability D1")
 def check_tds_applicability(invoice_json: str, vendor_registry_json: str) -> str:
-    """Im using this tool to check if TDS applies to this invoice (D1 check).
-    Uses LLM with full tds_sections.json context to handle all exceptions and edge cases.
-    Input: invoice as JSON string, vendor_registry as JSON string.
-    Returns: JSON string with check_id D1, passed, tds_applicable, confidence, and finding."""
+    """Use this tool to check whether TDS applies to this invoice (D1 check).
+    Calls the LLM with the relevant TDS rules and vendor info. Result is cached for D2 to reuse.
+    Input: invoice as a JSON string, vendor_registry as a JSON string.
+    Returns: JSON with check_id D1, passed, tds_applicable, tds_section, confidence, finding."""
     try:
-        invoice         = json.loads(invoice_json)
-        vendor_registry = json.loads(vendor_registry_json)
+        if not invoice_json or not invoice_json.strip():
+            return json.dumps({"check_id": "D1", "passed": False, "confidence": 0.20,
+                               "tds_applicable": False, "finding": "invoice_json is empty - pass the full invoice JSON string from the extractor output"})
+        invoice  = json.loads(invoice_json)
+        registry = json.loads(vendor_registry_json)
 
-        # Getting vendor record from registry for LLM context
-        vendor_data   = invoice.get("vendor", {})
-        vendor_gstin  = vendor_data.get("gstin", "") or invoice.get("vendor_gstin", "")
-        vendor_record = find_vendor_in_registry(vendor_gstin, vendor_registry)
+        vendor_gstin = invoice.get("vendor", {}).get("gstin", "") or invoice.get("vendor_gstin", "")
+        vendor       = find_vendor(vendor_gstin, registry)
 
-        # Loading full TDS rules file to pass to LLM as context
-        tds_rules_text = load_file_as_text("data/tds_sections.json")
+        # the result of this gets cached so D2 doesn't have to call the LLM again
+        llm = get_tds_from_llm(invoice, vendor)
+        d1  = llm.get("d1", {})
 
-        # FinanceGuard previous FY turnover from company_policy.yaml
-        # This is Rs 15 Crore which is above the 194Q threshold of Rs 10 Crore
-        buyer_turnover = 150000000
-
-        # Single LLM call covers both D1 and D2 together
-        llm_result = call_llm_for_tds_determination(
-            invoice, vendor_record, tds_rules_text, buyer_turnover
-        )
-
-        # Extracting just the D1 portion of the LLM result
-        d1_result      = llm_result.get("d1", {})
-        tds_applicable = d1_result.get("tds_applicable", False)
-        tds_section    = d1_result.get("tds_section", "UNKNOWN")
-        confidence     = float(d1_result.get("confidence", 0.50))
-        reasoning      = d1_result.get("reasoning", "")
+        applicable = d1.get("tds_applicable", False)
+        section    = d1.get("tds_section", "UNKNOWN")
+        confidence = float(d1.get("confidence", 0.50))
+        reasoning  = d1.get("reasoning", "")
 
         return json.dumps({
             "check_id":       "D1",
             "passed":         True,
             "confidence":     confidence,
-            "tds_applicable": tds_applicable,
-            "tds_section":    tds_section,
-            "finding": (
-                f"TDS {'APPLICABLE' if tds_applicable else 'not applicable'} | "
-                f"Section: {tds_section} | "
-                f"Reasoning: {reasoning}"
-            ),
-            "evidence": {
-                "tds_applicable": tds_applicable,
-                "tds_section":    tds_section,
-                "reasoning":      reasoning
-            }
+            "tds_applicable": applicable,
+            "tds_section":    section,
+            "finding":        f"TDS {'APPLICABLE' if applicable else 'not applicable'} | Section: {section} | {reasoning}",
+            "evidence":       {"tds_applicable": applicable, "tds_section": section, "reasoning": reasoning}
         })
-
-    except Exception as error:
-        return json.dumps({
-            "check_id":       "D1",
-            "passed":         False,
-            "confidence":     0.10,
-            "tds_applicable": False,
-            "finding":        f"Could not check TDS applicability: {str(error)}"
-        })
+    except Exception as e:
+        return json.dumps({"check_id": "D1", "passed": False, "confidence": 0.10,
+                           "tds_applicable": False, "finding": f"Error: {e}"})
 
 
 @tool("Determine TDS Section and Calculate TDS Amount D2")
 def check_tds_section_and_rate(invoice_json: str, vendor_registry_json: str) -> str:
-    """Im using this tool to determine TDS section, rate, and calculate TDS amount (D2 check).
-    Uses LLM with full tds_sections.json context including all exceptions.
-    Handles GTA exemptions, DTAA rates, 206AB, LDC, no-PAN rates, composite supplies.
-    Input: invoice as JSON string, vendor_registry as JSON string.
-    Returns: JSON string with check_id D2, tds_section, tds_rate, tds_amount, and finding."""
+    """Use this tool to figure out the TDS section, rate and amount for this invoice (D2 check).
+    If D1 already ran, this reads from the cache and makes no extra LLM call.
+    Also does a sanity check on the LLM's arithmetic because it sometimes gets the maths wrong.
+    Input: invoice as a JSON string, vendor_registry as a JSON string.
+    Returns: JSON with check_id D2, tds_section, tds_rate, tds_amount, confidence, finding."""
     try:
-        invoice         = json.loads(invoice_json)
-        vendor_registry = json.loads(vendor_registry_json)
+        if not invoice_json or not invoice_json.strip():
+            return json.dumps({"check_id": "D2", "passed": False, "confidence": 0.20,
+                               "tds_section": "UNKNOWN", "finding": "invoice_json is empty - pass the full invoice JSON string from the extractor output",
+                               "requires_human_review": True})
+        invoice  = json.loads(invoice_json)
+        registry = json.loads(vendor_registry_json)
 
-        # Getting vendor record from registry for LLM context
-        vendor_data   = invoice.get("vendor", {})
-        vendor_gstin  = vendor_data.get("gstin", "") or invoice.get("vendor_gstin", "")
-        vendor_record = find_vendor_in_registry(vendor_gstin, vendor_registry)
+        vendor_gstin = invoice.get("vendor", {}).get("gstin", "") or invoice.get("vendor_gstin", "")
+        vendor       = find_vendor(vendor_gstin, registry)
 
-        # Loading full TDS rules file to pass to LLM as context
-        tds_rules_text = load_file_as_text("data/tds_sections.json")
-        buyer_turnover = 150000000
+        # reads from cache if D1 already ran
+        llm = get_tds_from_llm(invoice, vendor)
+        d2  = llm.get("d2", {})
 
-        # Single LLM call covers both D1 and D2 together
-        llm_result = call_llm_for_tds_determination(
-            invoice, vendor_record, tds_rules_text, buyer_turnover
-        )
+        section        = d2.get("tds_section", "UNKNOWN")
+        rate           = float(d2.get("tds_rate", 0.0))
+        base           = float(d2.get("tds_base_amount", 0.0))
+        llm_amount     = float(d2.get("tds_amount", 0.0))
+        base_note      = d2.get("base_amount_note", "")
+        special_rules  = d2.get("special_rules_applied", [])
+        confidence     = float(d2.get("confidence", 0.50))
+        reasoning      = d2.get("reasoning", "")
+        vendor_class   = d2.get("vendor_classification", "")
+        service_class  = d2.get("service_classification", "")
 
-        # Extracting the D2 portion of the LLM result
-        d2_result              = llm_result.get("d2", {})
-        tds_section            = d2_result.get("tds_section", "UNKNOWN")
-        tds_rate               = float(d2_result.get("tds_rate", 0.0))
-        tds_base_amount        = float(d2_result.get("tds_base_amount", 0.0))
-        tds_amount_from_llm    = float(d2_result.get("tds_amount", 0.0))
-        base_amount_note       = d2_result.get("base_amount_note", "")
-        special_rules          = d2_result.get("special_rules_applied", [])
-        confidence             = float(d2_result.get("confidence", 0.50))
-        reasoning              = d2_result.get("reasoning", "")
-        vendor_classification  = d2_result.get("vendor_classification", "")
-        service_classification = d2_result.get("service_classification", "")
+        # double checking the LLM's maths since it can make arithmetic mistakes
+        expected_amount = round(base * rate / 100, 2)
+        math_is_correct = abs(expected_amount - llm_amount) <= ARITHMETIC_TOLERANCE_RS
+        final_amount    = llm_amount if math_is_correct else expected_amount
 
-        # Running arithmetic sanity check to catch any LLM math errors
-        amount_is_correct, expected_amount = run_tds_sanity_check(
-            tds_base_amount, tds_rate, tds_amount_from_llm
-        )
-
-        if amount_is_correct:
-            # LLM math checks out - using its amount
-            final_tds_amount = tds_amount_from_llm
-        else:
-            # LLM reasoning was right but arithmetic was off - correcting it
-            final_tds_amount = expected_amount
-            special_rules.append(
-                f"Arithmetic corrected: LLM said Rs {tds_amount_from_llm:,.2f} "
-                f"but Rs {tds_base_amount:,.2f} x {tds_rate}% = Rs {expected_amount:,.2f}"
-            )
+        if not math_is_correct:
+            special_rules.append(f"Math corrected: Rs {llm_amount:,.2f} -> Rs {expected_amount:,.2f}")
             confidence = min(confidence, 0.80)
 
-        # Building the finding text from all parts
-        finding_parts = [
-            f"Section {tds_section}",
-            f"Rate: {tds_rate}%",
-            f"TDS amount: Rs {final_tds_amount:,.2f}",
-            base_amount_note
-        ]
-        if special_rules:
-            finding_parts.extend(special_rules)
-        if vendor_classification:
-            finding_parts.append(f"Vendor: {vendor_classification}")
-        if service_classification:
-            finding_parts.append(f"Service: {service_classification}")
+        # Build finding from all parts
+        parts = [f"Section {section}", f"Rate {rate}%", f"TDS Rs {final_amount:,.2f}", base_note]
+        parts += special_rules
+        if vendor_class:  parts.append(f"Vendor: {vendor_class}")
+        if service_class: parts.append(f"Service: {service_class}")
 
         return json.dumps({
-            "check_id":              "D2",
-            "passed":                True,
-            "confidence":            round(confidence, 3),
-            "tds_section":           tds_section,
-            "tds_rate":              tds_rate,
-            "tds_base_amount":       tds_base_amount,
-            "tds_amount":            final_tds_amount,
-            "arithmetic_verified":   amount_is_correct,
-            "finding":               " | ".join(finding_parts),
+            "check_id":             "D2",
+            "passed":               True,
+            "confidence":           round(confidence, 3),
+            "tds_section":          section,
+            "tds_rate":             rate,
+            "tds_base_amount":      base,
+            "tds_amount":           final_amount,
+            "arithmetic_verified":  math_is_correct,
+            "finding":              " | ".join(p for p in parts if p),
             "evidence": {
-                "tds_section":            tds_section,
-                "tds_rate":               tds_rate,
-                "tds_base_amount":        tds_base_amount,
-                "tds_amount":             final_tds_amount,
-                "base_amount_note":       base_amount_note,
-                "special_rules_applied":  special_rules,
-                "vendor_classification":  vendor_classification,
-                "service_classification": service_classification,
-                "reasoning":              reasoning,
-                "arithmetic_verified":    amount_is_correct
+                "tds_section":           section,
+                "tds_rate":              rate,
+                "tds_base_amount":       base,
+                "tds_amount":            final_amount,
+                "base_amount_note":      base_note,
+                "special_rules_applied": special_rules,
+                "vendor_classification": vendor_class,
+                "service_classification": service_class,
+                "reasoning":             reasoning,
+                "arithmetic_verified":   math_is_correct
             }
         })
-
-    except Exception as error:
-        return json.dumps({
-            "check_id":              "D2",
-            "passed":                False,
-            "confidence":            0.00,
-            "tds_section":           "ERROR",
-            "finding":               f"Could not determine TDS section: {str(error)}",
-            "requires_human_review": True
-        })
+    except Exception as e:
+        return json.dumps({"check_id": "D2", "passed": False, "confidence": 0.00,
+                           "tds_section": "ERROR", "finding": f"Error: {e}",
+                           "requires_human_review": True})
 
 
 # ============================================================
-# CATEGORY E - POLICY AND BUSINESS RULES
+# E - policy and business rules
 # ============================================================
 
 @tool("Check Invoice Amount Within PO Tolerance")
 def check_po_amount_tolerance(invoice_json: str) -> str:
-    """Im using this tool to check if the invoice total is within plus or minus 5 percent of the PO amount.
-    If PO amount is missing the check is skipped and marked as not applicable.
+    """Use this tool to check if the invoice total is within the allowed tolerance of the PO amount (E1 check).
+    Tolerance is 5% by default, set in config. If there's no PO amount on the invoice this check is skipped.
     Input: full invoice as a JSON string.
-    Returns: JSON string with check_id E1, passed, confidence, variance percentage, and finding."""
+    Returns: JSON with check_id E1, passed, confidence, variance_percent, finding."""
     try:
-        invoice       = json.loads(invoice_json)
-        invoice_total = float(invoice.get("total_amount", 0))
-        po_amount     = float(invoice.get("po_amount", 0))
-        po_reference  = invoice.get("po_reference", invoice.get("po_number", ""))
+        if not invoice_json or not invoice_json.strip():
+            return json.dumps({"check_id": "E1", "passed": False, "confidence": 0.20,
+                               "finding": "invoice_json is empty - pass the full invoice JSON string from the extractor output"})
+        inv          = json.loads(invoice_json)
+        total        = float(inv.get("total_amount", 0))
+        po_amount = float(inv.get("po_amount") or 0)
+        po_reference = inv.get("po_reference", inv.get("po_number", ""))
 
-        # No PO amount means this check cannot be performed - skipping it
-        # Skipping is different from failing - the invoice is not penalised
+        # no PO amount means this check doesn't apply - skip it rather than failing
         if po_amount == 0:
             return json.dumps({
                 "check_id":   "E1",
                 "passed":     True,
                 "confidence": 1.00,
                 "skipped":    True,
-                "finding":    "PO amount not provided - E1 check skipped, not applicable for this invoice",
-                "evidence":   {"po_reference": po_reference if po_reference else "none"}
+                "finding":    "No PO amount on invoice - E1 skipped",
+                "evidence":   {"po_reference": po_reference or "none"}
             })
 
-        # Checking if invoice is within 5% band of the PO amount
-        tolerance_amount  = po_amount * 0.05
-        amount_difference = abs(invoice_total - po_amount)
-        variance_percent  = round((amount_difference / po_amount) * 100, 2)
-        check_passed      = amount_difference <= tolerance_amount
+        tolerance = po_amount * (PO_TOLERANCE_PERCENT / 100)
+        diff      = abs(total - po_amount)
+        variance  = round((diff / po_amount) * 100, 2)
+        passed    = diff <= tolerance
 
         return json.dumps({
             "check_id":   "E1",
-            "passed":     check_passed,
+            "passed":     passed,
             "confidence": 0.99,
             "skipped":    False,
-            "finding": (
-                f"Within PO tolerance - variance is {variance_percent}% which is under 5%"
-                if check_passed
-                else f"Exceeds PO tolerance - variance is {variance_percent}% which is over the 5% limit"
-            ),
-            "evidence": {
-                "invoice_total":       invoice_total,
-                "po_amount":           po_amount,
-                "tolerance_5_percent": tolerance_amount,
-                "amount_difference":   amount_difference,
-                "variance_percent":    variance_percent,
-                "po_reference":        po_reference
-            }
+            "finding":    f"{'Within' if passed else 'EXCEEDS'} PO tolerance - variance {variance}% (limit {PO_TOLERANCE_PERCENT}%)",
+            "evidence":   {"invoice_total": total, "po_amount": po_amount,
+                           "variance_percent": variance, "tolerance_percent": PO_TOLERANCE_PERCENT,
+                           "po_reference": po_reference}
         })
-
-    except Exception as error:
-        return json.dumps({
-            "check_id": "E1", "passed": False, "confidence": 0.20,
-            "finding":  f"Could not check PO tolerance: {str(error)}"
-        })
+    except Exception as e:
+        return json.dumps({"check_id": "E1", "passed": False, "confidence": 0.20,
+                           "finding": f"Error: {e}"})
 
 
 @tool("Check Vendor is on Approved Vendor List")
 def check_approved_vendor(vendor_gstin: str, vendor_registry_json: str) -> str:
-    """Im using this tool to verify the vendor exists in vendor_registry.json and is currently ACTIVE.
-    Vendor can be in the registry but have SUSPENDED status - both conditions must pass.
+    """Use this tool to check if the vendor is in the approved vendor list and is currently ACTIVE (E3 check).
+    Being in the registry is not enough - they also have to be ACTIVE, not SUSPENDED or CANCELLED.
     Input: vendor_gstin as a plain string, vendor_registry as a JSON string.
-    Returns: JSON string with check_id E3, passed, confidence, and finding."""
+    Returns: JSON with check_id E3, passed, confidence, finding."""
     try:
-        vendor_registry = json.loads(vendor_registry_json)
+        if not vendor_gstin:
+            return json.dumps({"check_id": "E3", "passed": False, "confidence": 0.99,
+                               "finding": "vendor_gstin is missing or null - cannot verify approved vendor list"})
+        registry = json.loads(vendor_registry_json)
+        gstin    = fix_gstin_ocr(vendor_gstin)
+        vendor   = find_vendor(gstin, registry)
 
-        # Fixing OCR errors before doing the registry lookup
-        normalized_gstin = fix_ocr_errors_in_gstin(vendor_gstin)
-        vendor_record    = find_vendor_in_registry(normalized_gstin, vendor_registry)
+        if not vendor:
+            return json.dumps({"check_id": "E3", "passed": False, "confidence": 0.99,
+                               "finding": f"Vendor GSTIN '{gstin}' not in approved registry",
+                               "evidence": {"gstin": gstin, "found": False}})
 
-        if not vendor_record:
-            return json.dumps({
-                "check_id":   "E3",
-                "passed":     False,
-                "confidence": 0.99,
-                "finding":    f"Vendor GSTIN '{normalized_gstin}' not found in the approved vendor registry",
-                "evidence":   {"normalized_gstin": normalized_gstin, "found_in_registry": False}
-            })
+        status = vendor.get("status", "UNKNOWN")
+        active = status == "ACTIVE"
 
-        # Vendor found - now checking if they are actually active
-        vendor_status    = vendor_record.get("status", "UNKNOWN")
-        vendor_is_active = vendor_status == "ACTIVE"
-
-        if not vendor_is_active:
-            return json.dumps({
-                "check_id":   "E3",
-                "passed":     False,
-                "confidence": 0.99,
-                "finding":    f"Vendor '{vendor_record.get('legal_name', '')}' is in registry but status is '{vendor_status}'",
-                "evidence": {
-                    "normalized_gstin": normalized_gstin,
-                    "vendor_name":      vendor_record.get("legal_name", ""),
-                    "status":           vendor_status,
-                    "suspension_date":  vendor_record.get("suspension_date", "not available")
-                }
-            })
+        if not active:
+            return json.dumps({"check_id": "E3", "passed": False, "confidence": 0.99,
+                               "finding": f"Vendor '{vendor.get('legal_name', '')}' status is '{status}'",
+                               "evidence": {"gstin": gstin, "status": status,
+                                            "suspension_date": vendor.get("suspension_date", "N/A")}})
 
         return json.dumps({
             "check_id":   "E3",
             "passed":     True,
             "confidence": 1.00,
-            "finding":    f"Vendor '{vendor_record.get('legal_name', '')}' is on the approved list and is ACTIVE",
-            "evidence": {
-                "normalized_gstin": normalized_gstin,
-                "vendor_id":        vendor_record.get("vendor_id", ""),
-                "vendor_name":      vendor_record.get("legal_name", ""),
-                "vendor_type":      vendor_record.get("vendor_type", ""),
-                "status":           vendor_status
-            }
+            "finding":    f"Vendor '{vendor.get('legal_name', '')}' is approved and ACTIVE",
+            "evidence":   {"gstin": gstin, "vendor_id": vendor.get("vendor_id", ""),
+                           "vendor_name": vendor.get("legal_name", ""),
+                           "vendor_type": vendor.get("vendor_type", ""), "status": status}
         })
-
-    except Exception as error:
-        return json.dumps({
-            "check_id": "E3", "passed": False, "confidence": 0.20,
-            "finding":  f"Could not check approved vendor list: {str(error)}"
-        })
+    except Exception as e:
+        return json.dumps({"check_id": "E3", "passed": False, "confidence": 0.20,
+                           "finding": f"Error: {e}"})

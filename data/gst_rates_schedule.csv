@@ -1,0 +1,58 @@
+hsn_sac_code,description,rate_cgst,rate_sgst,rate_igst,effective_from,effective_to,category,special_conditions
+998311,Management consulting services,9,9,18,2017-07-01,,SERVICES,
+998312,Management consulting services (to SEZ),0,0,0,2017-07-01,,SERVICES,Requires LUT/Bond; supply to SEZ
+998313,Business consulting services,9,9,18,2017-07-01,,SERVICES,
+998314,Information technology consulting,9,9,18,2017-07-01,,SERVICES,
+998315,IT design and development services,9,9,18,2017-07-01,,SERVICES,
+998316,IT infrastructure management,9,9,18,2017-07-01,,SERVICES,
+998392,Temporary staffing services,9,9,18,2017-07-01,,SERVICES,
+998393,Executive search services,9,9,18,2017-07-01,,SERVICES,
+996511,Road transport - goods carriage,2.5,2.5,5,2017-07-01,2022-05-17,SERVICES,GTA opting for forward charge
+996511,Road transport - goods carriage,0,0,0,2017-07-01,,SERVICES,GTA under RCM - recipient pays GST
+996512,Rail transport - goods,2.5,2.5,5,2017-07-01,,SERVICES,
+996521,Passenger transport by road,2.5,2.5,5,2017-07-01,,SERVICES,Non-AC; reduced rate
+996521,Passenger transport by road,6,6,12,2017-07-01,,SERVICES,AC vehicles; higher rate
+997212,Renting of commercial property,9,9,18,2017-07-01,,SERVICES,
+997211,Renting of residential property,0,0,0,2017-07-01,,SERVICES,Exempt when for residential use
+997213,Renting of industrial property,9,9,18,2017-07-01,,SERVICES,
+995411,General construction services,9,9,18,2017-07-01,2019-03-31,SERVICES,Old rate
+995411,General construction services,6,6,12,2019-04-01,,SERVICES,Reduced rate from April 2019
+995421,Civil construction services,9,9,18,2017-07-01,2019-03-31,SERVICES,Old rate
+995421,Civil construction services,6,6,12,2019-04-01,,SERVICES,Reduced rate from April 2019
+995429,Electrical installation services,9,9,18,2017-07-01,,SERVICES,
+995461,Plumbing services,9,9,18,2017-07-01,,SERVICES,
+998599,Other professional services,9,9,18,2017-07-01,,SERVICES,
+998592,Architectural services,9,9,18,2017-07-01,,SERVICES,
+998593,Engineering services,9,9,18,2017-07-01,,SERVICES,
+998712,Software licensing - perpetual,9,9,18,2017-07-01,,SERVICES,Not OIDAR
+998713,Software licensing - subscription,9,9,18,2017-07-01,,SERVICES,
+998719,Cloud hosting services,9,9,18,2017-07-01,,SERVICES,
+998314,IT consulting (export),0,0,0,2017-07-01,,SERVICES,Export with LUT; zero-rated
+84713010,Desktop computers,9,9,18,2017-07-01,,GOODS,
+84713020,Laptop computers,9,9,18,2017-07-01,,GOODS,
+84714100,Data processing machines,9,9,18,2017-07-01,,GOODS,
+84433210,Printers,9,9,18,2017-07-01,,GOODS,
+84433220,Multifunction printers,9,9,18,2017-07-01,,GOODS,
+84718000,Computer peripherals,9,9,18,2017-07-01,,GOODS,
+48025510,A4 paper (copier paper),6,6,12,2017-07-01,2022-09-30,GOODS,Old rate
+48025510,A4 paper (copier paper),9,9,18,2022-10-01,,GOODS,Rate increased Oct 2022
+48025520,Notebooks and registers,6,6,12,2017-07-01,,GOODS,
+39269099,Plastic stationery items,9,9,18,2017-07-01,,GOODS,
+39231090,Plastic boxes and containers,9,9,18,2017-07-01,,GOODS,
+94032000,Office metal furniture,9,9,18,2017-07-01,,GOODS,
+94033000,Office wooden furniture,9,9,18,2017-07-01,,GOODS,
+94039000,Office furniture parts,9,9,18,2017-07-01,,GOODS,
+85044010,UPS systems,9,9,18,2017-07-01,,GOODS,
+85423100,Electronic processors,0,0,0,2017-07-01,,GOODS,Exempt - IT hardware manufacturing
+30049099,Medicaments - other,6,6,12,2017-07-01,,GOODS,Branded drugs
+30049011,Paracetamol formulations,2.5,2.5,5,2017-07-01,,GOODS,Essential medicines
+30041090,Antibiotics,6,6,12,2017-07-01,,GOODS,
+30021500,Blood products,0,0,0,2017-07-01,,GOODS,Exempt
+90189099,Medical equipment,6,6,12,2017-07-01,,GOODS,
+90181990,Medical diagnostic equipment,6,6,12,2017-07-01,,GOODS,
+90192010,Oxygen concentrators,6,6,12,2017-07-01,2021-06-30,GOODS,Standard rate
+90192010,Oxygen concentrators,0,0,0,2021-07-01,2021-09-30,GOODS,COVID relief - temporarily exempt
+90192010,Oxygen concentrators,6,6,12,2021-10-01,,GOODS,Standard rate restored
+27101990,Diesel fuel,0,0,0,2017-07-01,,GOODS,Outside GST - state taxes apply
+27101290,Petrol,0,0,0,2017-07-01,,GOODS,Outside GST - state taxes apply
+99,Not elsewhere classified,9,9,18,2017-07-01,,DEFAULT,Default rate when HSN unknown
