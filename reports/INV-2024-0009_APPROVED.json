@@ -1,0 +1,185 @@
+{
+  "invoice_id": "INV-2024-0009",
+  "overall_decision": "APPROVED",
+  "compliance_score": 100,
+  "confidence": 0.98,
+  "requires_human_review": false,
+  "validation_results": {
+    "category_a_authenticity": {
+      "score": 2,
+      "max_score": 2,
+      "checks": {
+        "A1": {
+          "passed": true,
+          "confidence": 0.9,
+          "finding": "Invoice number 'PR/MUM/2024/RENT-10' format valid"
+        },
+        "A2": {
+          "passed": true,
+          "confidence": 1.0,
+          "finding": "No duplicate found"
+        }
+      }
+    },
+    "category_b_gst": {
+      "score": 2,
+      "max_score": 2,
+      "checks": {
+        "B1": {
+          "passed": true,
+          "confidence": 0.95,
+          "finding": "GSTIN '27AABCP7788R1ZT' is valid, status: ACTIVE"
+        },
+        "B7": {
+          "passed": true,
+          "confidence": 0.97,
+          "finding": "Intra-state: CGST 9.0% equals SGST 9.0%"
+        }
+      }
+    },
+    "category_c_arithmetic": {
+      "score": 2,
+      "max_score": 2,
+      "checks": {
+        "C1": {
+          "passed": true,
+          "confidence": 1.0,
+          "finding": "All 1 line items correct"
+        },
+        "C2": {
+          "passed": true,
+          "confidence": 1.0,
+          "finding": "Subtotal matches: calculated Rs 450,000.00 vs stated Rs 450,000.00"
+        }
+      }
+    },
+    "category_d_tds": {
+      "score": 2,
+      "max_score": 2,
+      "checks": {
+        "D1": {
+          "passed": true,
+          "confidence": 1.0,
+          "finding": "TDS APPLICABLE | Section: 194I | TDS is applicable under section 194I for office rent, as the payment exceeds the annual threshold and the vendor has a valid PAN."
+        },
+        "D2": {
+          "passed": true,
+          "confidence": 1.0,
+          "finding": "Section 194I | Rate 10.0% | TDS Rs 53,100.00 | For rent under section 194I, TDS is calculated on the gross amount including GST (total_amount) as per CBDT Circular No. 23/2017 and the specific rule for 194I. | tds_on_gst_clarity_exception_194I | Vendor: N/A | Service: N/A"
+        }
+      }
+    },
+    "category_e_policy": {
+      "score": 1,
+      "max_score": 1,
+      "checks": {
+        "E1": {
+          "passed": true,
+          "confidence": 1.0,
+          "finding": "No PO amount on invoice - E1 skipped"
+        },
+        "E3": {
+          "passed": true,
+          "confidence": 1.0,
+          "finding": "Vendor 'Prime Real Estate Developers' is approved and ACTIVE"
+        }
+      }
+    }
+  },
+  "tds_summary": {
+    "tds_applicable": true,
+    "tds_section": "194I",
+    "tds_rate": 10.0,
+    "tds_amount": 53100.0,
+    "special_rules_applied": [
+      "tds_on_gst_clarity_exception_194I"
+    ]
+  },
+  "gst_summary": {
+    "gstin_valid": true,
+    "gstin_status": "ACTIVE",
+    "gst_type": "intra-state",
+    "cgst_rate": 9.0,
+    "sgst_rate": 9.0,
+    "igst_rate": 0.0
+  },
+  "audit_trail": [
+    {
+      "timestamp": "2024-01-01T10:00:00.000Z",
+      "check": "A1",
+      "passed": true,
+      "finding": "Invoice number 'PR/MUM/2024/RENT-10' format valid",
+      "confidence": 0.9
+    },
+    {
+      "timestamp": "2024-01-01T10:00:00.000Z",
+      "check": "A2",
+      "passed": true,
+      "finding": "No duplicate found",
+      "confidence": 1.0
+    },
+    {
+      "timestamp": "2024-01-01T10:00:00.000Z",
+      "check": "B1",
+      "passed": true,
+      "finding": "GSTIN '27AABCP7788R1ZT' is valid, status: ACTIVE",
+      "confidence": 0.95
+    },
+    {
+      "timestamp": "2024-01-01T10:00:00.000Z",
+      "check": "B7",
+      "passed": true,
+      "finding": "Intra-state: CGST 9.0% equals SGST 9.0%",
+      "confidence": 0.97
+    },
+    {
+      "timestamp": "2024-01-01T10:00:00.000Z",
+      "check": "C1",
+      "passed": true,
+      "finding": "All 1 line items correct",
+      "confidence": 1.0
+    },
+    {
+      "timestamp": "2024-01-01T10:00:00.000Z",
+      "check": "C2",
+      "passed": true,
+      "finding": "Subtotal matches: calculated Rs 450,000.00 vs stated Rs 450,000.00",
+      "confidence": 1.0
+    },
+    {
+      "timestamp": "2024-01-01T10:00:00.000Z",
+      "check": "D1",
+      "passed": true,
+      "finding": "TDS APPLICABLE | Section: 194I | TDS is applicable under section 194I for office rent, as the payment exceeds the annual threshold and the vendor has a valid PAN.",
+      "confidence": 1.0
+    },
+    {
+      "timestamp": "2024-01-01T10:00:00.000Z",
+      "check": "D2",
+      "passed": true,
+      "finding": "Section 194I | Rate 10.0% | TDS Rs 53,100.00 | For rent under section 194I, TDS is calculated on the gross amount including GST (total_amount) as per CBDT Circular No. 23/2017 and the specific rule for 194I. | tds_on_gst_clarity_exception_194I | Vendor: N/A | Service: N/A",
+      "confidence": 1.0
+    },
+    {
+      "timestamp": "2024-01-01T10:00:00.000Z",
+      "check": "E1",
+      "passed": true,
+      "finding": "No PO amount on invoice - E1 skipped",
+      "confidence": 1.0
+    },
+    {
+      "timestamp": "2024-01-01T10:00:00.000Z",
+      "check": "E3",
+      "passed": true,
+      "finding": "Vendor 'Prime Real Estate Developers' is approved and ACTIVE",
+      "confidence": 1.0
+    },
+    {
+      "timestamp": "2024-01-01T10:00:01.000Z",
+      "check": "RESOLVER",
+      "passed": true,
+      "finding": "All critical data fields were present (Rule 0 did not fire). No HIGH priority checks (A2, B1, B7, C1, C2, E3) failed (Rule 1 did not fire). No explicit 'REGULATORY CONFLICT' was found in any check findings (Rule 2 did not fire). The average confidence across all non-skipped checks is 0.980, which is above the 0.70 threshold, and no MEDIUM priority checks (A1, D1, D2) produced ambiguous results (Rule 3 did not fire). No temporal ambiguity was detected (Rule 4 did not fire). The total invoice amount of Rs 531,000 is below the high-value escalation threshold of Rs 10,00,000 (Rule 5 did not fire). The weighted compliance score was calculated as 100, which is greater than or equal to the auto-approve threshold of 95 (Rule 6 fired, resulting in APPROVED). Check E1 was skipped due to the absence of a PO amount on the invoice, which did not impact the overall approval decision as all other applicable checks passed.",
+      "confidence": 0.98
+    }
+  ]
+}

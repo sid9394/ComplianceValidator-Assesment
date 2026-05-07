@@ -116,8 +116,12 @@ SLEEP_BETWEEN_INVOICES_SECONDS = 45 if LLM_PROVIDER == "groq" else 20
 # gemini doesn't need this so it's 0
 REQUEST_DELAY_SECONDS = 2 if LLM_PROVIDER == "groq" else 0
 
-# Retry wait times for 429 / RESOURCE_EXHAUSTED errors
+# Retry wait times for 429 / RESOURCE_EXHAUSTED errors in call_llm
 RETRY_WAIT_SECONDS = [30, 60, 90]
+
+# Retry wait times for transient failures at the crew kickoff level
+# (connection errors, timeouts, 5xx, overloaded — anything that might clear up on its own)
+CREW_RETRY_WAIT_SECONDS = [15, 30, 60]
 
 # ============================================================
 # batch processing settings

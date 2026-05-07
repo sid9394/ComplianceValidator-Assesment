@@ -53,7 +53,8 @@ class ComplianceValidatorCrew:
             config=self.agents_config["extractor_agent"],
             llm=self.fast_llm,
             allow_delegation=False,
-            verbose=True
+            verbose=True,
+            max_iter=5
         )
 
     @agent
@@ -86,7 +87,8 @@ class ComplianceValidatorCrew:
             config=self.agents_config["resolver_agent"],
             llm=self.fast_llm,
             allow_delegation=False,
-            verbose=True
+            verbose=True,
+            max_iter=5
         )
 
     @agent
@@ -96,7 +98,8 @@ class ComplianceValidatorCrew:
             config=self.agents_config["reporter_agent"],
             llm=self.fast_llm,
             allow_delegation=False,
-            verbose=True
+            verbose=True,
+            max_iter=5
         )
 
     # ============================================================

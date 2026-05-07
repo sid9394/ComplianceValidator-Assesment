@@ -32,6 +32,7 @@ from config.config import (
     SLEEP_BETWEEN_INVOICES_SECONDS,
     BATCH_SIZE,
     BATCH_DELAY_SECONDS,
+    CREW_RETRY_WAIT_SECONDS,
 )
 from crew import ComplianceValidatorCrew
 from tools.check_tools import clear_tds_cache
@@ -263,11 +264,28 @@ def _process_single_invoice(entry: dict, index: int, total: int,
         else:
             slim_registry = vendor_registry
 
-        result = crew_runner.crew().kickoff(inputs={
-            "invoice_json":         invoice_json_str,
-            "vendor_registry_json": json.dumps(slim_registry),
-            "seen_invoices_json":   json.dumps(seen_invoices),
-        })
+        for _attempt in range(len(CREW_RETRY_WAIT_SECONDS) + 1):
+            try:
+                result = crew_runner.crew().kickoff(inputs={
+                    "invoice_json":         invoice_json_str,
+                    "vendor_registry_json": json.dumps(slim_registry),
+                    "seen_invoices_json":   json.dumps(seen_invoices),
+                })
+                break
+            except Exception as _e:
+                _err = str(_e).lower()
+                _transient = any(k in _err for k in (
+                    "429", "rate limit", "resource exhausted",
+                    "connection", "timeout", "timed out",
+                    "503", "502", "500", "overloaded", "service unavailable",
+                ))
+                if _transient and _attempt < len(CREW_RETRY_WAIT_SECONDS):
+                    _wait = CREW_RETRY_WAIT_SECONDS[_attempt]
+                    total = len(CREW_RETRY_WAIT_SECONDS) + 1
+                    print(f"  LLM error (attempt {_attempt + 1}/{total}), retrying in {_wait}s: {_e}")
+                    time.sleep(_wait)
+                else:
+                    raise
 
         report               = extract_json_from_text(str(result))
         report["invoice_id"] = report.get("invoice_id", invoice_id)
@@ -358,7 +376,8 @@ def process_invoices(input_path: str, output_path: str, batch_size: int = None):
                     time.sleep(SLEEP_BETWEEN_INVOICES_SECONDS)
 
     # Write summary file
-    summary_file = output_dir / "_summary.json"
+    input_stem   = Path(input_path).stem
+    summary_file = output_dir / f"{input_stem}_summary.json"
     with open(summary_file, "w") as f:
         json.dump({
             "total_processed": len(summary),

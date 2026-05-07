@@ -1,0 +1,186 @@
+{
+  "invoice_id": "INV-2024-0006",
+  "overall_decision": "APPROVED",
+  "compliance_score": 95,
+  "confidence": 0.98,
+  "requires_human_review": false,
+  "validation_results": {
+    "category_a_authenticity": {
+      "score": 2,
+      "max_score": 2,
+      "checks": {
+        "A1": {
+          "passed": true,
+          "confidence": 0.9,
+          "finding": "Invoice number 'ABC/BLR/24-25/0099' format valid"
+        },
+        "A2": {
+          "passed": true,
+          "confidence": 1.0,
+          "finding": "No duplicate found"
+        }
+      }
+    },
+    "category_b_gst": {
+      "score": 2,
+      "max_score": 2,
+      "checks": {
+        "B1": {
+          "passed": true,
+          "confidence": 0.95,
+          "finding": "GSTIN '29AABCA9876N1ZQ' is valid, status: ACTIVE"
+        },
+        "B7": {
+          "passed": true,
+          "confidence": 0.97,
+          "finding": "Inter-state: IGST at 18.0% applied correctly"
+        }
+      }
+    },
+    "category_c_arithmetic": {
+      "score": 2,
+      "max_score": 2,
+      "checks": {
+        "C1": {
+          "passed": true,
+          "confidence": 1.0,
+          "finding": "All 1 line items correct"
+        },
+        "C2": {
+          "passed": true,
+          "confidence": 1.0,
+          "finding": "Subtotal matches: calculated Rs 300,000.00 vs stated Rs 300,000.00"
+        }
+      }
+    },
+    "category_d_tds": {
+      "score": 2,
+      "max_score": 2,
+      "checks": {
+        "D1": {
+          "passed": true,
+          "confidence": 1.0,
+          "finding": "TDS APPLICABLE | Section: 194C | TDS is applicable under section 194C for work contract services provided by a company, as the payment exceeds the single transaction threshold of Rs 30,000."
+        },
+        "D2": {
+          "passed": true,
+          "confidence": 1.0,
+          "finding": "Section 194C | Rate 2.0% | TDS Rs 6,000.00 | TDS is calculated on the subtotal (amount exclusive of GST) as per the general rule for section 194C, since GST is shown separately. | threshold_computation | tds_on_gst_clarity | Vendor: company | Service: N/A"
+        }
+      }
+    },
+    "category_e_policy": {
+      "score": 1,
+      "max_score": 1,
+      "checks": {
+        "E1": {
+          "passed": true,
+          "confidence": 1.0,
+          "finding": "No PO amount on invoice - E1 skipped"
+        },
+        "E3": {
+          "passed": true,
+          "confidence": 1.0,
+          "finding": "Vendor 'ABC Contractors Pvt Ltd' is approved and ACTIVE"
+        }
+      }
+    }
+  },
+  "tds_summary": {
+    "tds_applicable": true,
+    "tds_section": "194C",
+    "tds_rate": 2.0,
+    "tds_amount": 6000.0,
+    "special_rules_applied": [
+      "threshold_computation",
+      "tds_on_gst_clarity"
+    ]
+  },
+  "gst_summary": {
+    "gstin_valid": true,
+    "gstin_status": "ACTIVE",
+    "gst_type": "inter-state",
+    "cgst_rate": 0.0,
+    "sgst_rate": 0.0,
+    "igst_rate": 18.0
+  },
+  "audit_trail": [
+    {
+      "timestamp": "2024-01-01T12:00:00Z",
+      "check": "A1",
+      "passed": true,
+      "finding": "Invoice number 'ABC/BLR/24-25/0099' format valid",
+      "confidence": 0.9
+    },
+    {
+      "timestamp": "2024-01-01T12:00:01Z",
+      "check": "A2",
+      "passed": true,
+      "finding": "No duplicate found",
+      "confidence": 1.0
+    },
+    {
+      "timestamp": "2024-01-01T12:00:02Z",
+      "check": "B1",
+      "passed": true,
+      "finding": "GSTIN '29AABCA9876N1ZQ' is valid, status: ACTIVE",
+      "confidence": 0.95
+    },
+    {
+      "timestamp": "2024-01-01T12:00:03Z",
+      "check": "B7",
+      "passed": true,
+      "finding": "Inter-state: IGST at 18.0% applied correctly",
+      "confidence": 0.97
+    },
+    {
+      "timestamp": "2024-01-01T12:00:04Z",
+      "check": "C1",
+      "passed": true,
+      "finding": "All 1 line items correct",
+      "confidence": 1.0
+    },
+    {
+      "timestamp": "2024-01-01T12:00:05Z",
+      "check": "C2",
+      "passed": true,
+      "finding": "Subtotal matches: calculated Rs 300,000.00 vs stated Rs 300,000.00",
+      "confidence": 1.0
+    },
+    {
+      "timestamp": "2024-01-01T12:00:06Z",
+      "check": "D1",
+      "passed": true,
+      "finding": "TDS APPLICABLE | Section: 194C | TDS is applicable under section 194C for work contract services provided by a company, as the payment exceeds the single transaction threshold of Rs 30,000.",
+      "confidence": 1.0
+    },
+    {
+      "timestamp": "2024-01-01T12:00:07Z",
+      "check": "D2",
+      "passed": true,
+      "finding": "Section 194C | Rate 2.0% | TDS Rs 6,000.00 | TDS is calculated on the subtotal (amount exclusive of GST) as per the general rule for section 194C, since GST is shown separately. | threshold_computation | tds_on_gst_clarity | Vendor: company | Service: N/A",
+      "confidence": 1.0
+    },
+    {
+      "timestamp": "2024-01-01T12:00:08Z",
+      "check": "E1",
+      "passed": true,
+      "finding": "No PO amount on invoice - E1 skipped",
+      "confidence": 1.0
+    },
+    {
+      "timestamp": "2024-01-01T12:00:09Z",
+      "check": "E3",
+      "passed": true,
+      "finding": "Vendor 'ABC Contractors Pvt Ltd' is approved and ACTIVE",
+      "confidence": 1.0
+    },
+    {
+      "timestamp": "2024-01-01T12:00:10Z",
+      "check": "RESOLVER",
+      "passed": true,
+      "finding": "All critical data fields (invoice_number, vendor_gstin, total_amount) were present, so Rule 0 did not fire. All HIGH priority checks (A2, B1, B7, C1, C2, E3) passed, meaning Rule 1 did not fire. No check findings contained the explicit text 'REGULATORY CONFLICT', so Rule 2 did not fire. The average confidence across all non-skipped checks is 0.980, which is above the 0.70 threshold, and no MEDIUM priority checks (A1, D1, D2) produced contradictory or ambiguous results, thus Rule 3 did not fire. No check findings contained 'transition period', so Rule 4 did not fire. The total_amount of Rs 354,000 does not exceed the high-value threshold of Rs 10,00,000, so Rule 5 did not fire. \n\nProceeding to Rule 6, the weighted compliance score was calculated as follows:\n- document_authenticity (A1, A2): 15 * (2/2) = 15\n- gst_compliance (B1, B7): 25 * (2/2) = 25\n- arithmetic_accuracy (C1, C2): 15 * (2/2) = 15\n- tds_compliance (D1, D2): 20 * (2/2) = 20\n- policy_compliance (E1, E3): 15 * (1/1) = 15 (E1 skipped, E3 passed)\n- data_quality: 10 - (1 skipped check due to missing field * 5) = 5\nTotal compliance_score = 15 + 25 + 15 + 20 + 15 + 5 = 95.\n\nSince the compliance_score is 95, which is \u2265 95, the invoice is APPROVED as per Rule 6.",
+      "confidence": 0.98
+    }
+  ]
+}

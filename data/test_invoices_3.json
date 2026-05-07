@@ -1,0 +1,198 @@
+[
+  {
+    "invoice_id": "INV-2024-0013",
+    "invoice_number": "HSI/MH/2024/MED-445",
+    "invoice_date": "2024-10-14",
+    "vendor": {
+      "name": "Healthcare Solutions India",
+      "gstin": "27AABCH4455T1ZM",
+      "pan": "AABCH4455T",
+      "address": "Medical Plaza, Powai, Mumbai - 400076"
+    },
+    "buyer": {
+      "name": "FinanceGuard Solutions Private Limited",
+      "gstin": "27AABCF9999K1ZX",
+      "address": "Tower A, Mindspace, Goregaon East, Mumbai - 400063"
+    },
+    "line_items": [
+      {
+        "description": "First Aid Kits",
+        "hsn_sac": "90189099",
+        "quantity": 20,
+        "unit": "Kits",
+        "rate": 2500,
+        "amount": 50000
+      },
+      {
+        "description": "Paracetamol 500mg (Strip of 10) - 500 strips",
+        "hsn_sac": "30049011",
+        "quantity": 500,
+        "unit": "Strips",
+        "rate": 25,
+        "amount": 12500
+      },
+      {
+        "description": "Blood Pressure Monitor",
+        "hsn_sac": "90181990",
+        "quantity": 5,
+        "unit": "Nos",
+        "rate": 3500,
+        "amount": 17500
+      }
+    ],
+    "subtotal": 80000,
+    "cgst_rate": 6,
+    "cgst_amount": 4800,
+    "sgst_rate": 6,
+    "sgst_amount": 4800,
+    "total_tax": 9600,
+    "total_amount": 89600,
+    "_test_category": "MIXED_GST_RATES",
+    "_expected_result": "FAIL",
+    "_complexity": "VERY_HIGH",
+    "_trap": "Different items have different GST rates: First Aid (12%), Paracetamol (5%), BP Monitor (12%). Cannot apply single 12% rate to all. Invoice should show item-wise GST."
+  },
+  {
+    "invoice_id": "INV-2024-0014",
+    "invoice_number": "GL/DEL/24-25/5650",
+    "invoice_date": "2024-07-15",
+    "vendor": {
+      "name": "GlobaI Logistics & Transport Co.",
+      "gstin": "07AABCG5678H1Z9",
+      "pan": "AABCG5678H",
+      "address": "Plot 23, Industrial Area, Okhla Phase-II, New Delhi - 110020"
+    },
+    "buyer": {
+      "name": "FinanceGuard Solutions Private Limited",
+      "gstin": "27AABCF9999K1ZX",
+      "address": "Tower A, Mindspace, Goregaon East, Mumbai - 400063"
+    },
+    "line_items": [
+      {
+        "description": "Transportation of office equipment",
+        "hsn_sac": "996511",
+        "quantity": 1,
+        "unit": "Consignment",
+        "rate": 85000,
+        "amount": 85000
+      }
+    ],
+    "subtotal": 85000,
+    "total_tax": 0,
+    "total_amount": 85000,
+    "remarks": "GST under Reverse Charge Mechanism",
+    "_test_category": "GTA_RCM",
+    "_expected_result": "PASS_WITH_RCM_LIABILITY",
+    "_complexity": "HIGH",
+    "_trap": "Vendor name has OCR error: 'GlobaI' instead of 'Global' (I vs l). Also, this is GTA under RCM - buyer needs to pay GST. TDS 194C also applicable. Check if vendor has lower deduction cert."
+  },
+  {
+    "invoice_id": "INV-2024-0015",
+    "invoice_number": "TS/MH/2024/001237",
+    "invoice_date": "2024-03-28",
+    "vendor": {
+      "name": "TechSoft Solutions Private Limited",
+      "gstin": "27AABCT1234F1ZP",
+      "pan": "AABCT1234F",
+      "address": "Unit 405, Tech Park, Andheri East, Mumbai - 400069"
+    },
+    "buyer": {
+      "name": "FinanceGuard Solutions Private Limited",
+      "gstin": "27AABCF9999K1ZX",
+      "address": "Tower A, Mindspace, Goregaon East, Mumbai - 400063"
+    },
+    "line_items": [
+      {
+        "description": "Annual Software License - Enterprise Edition",
+        "hsn_sac": "998712",
+        "quantity": 1,
+        "unit": "License",
+        "rate": 1200000,
+        "amount": 1200000
+      }
+    ],
+    "subtotal": 1200000,
+    "cgst_rate": 9,
+    "cgst_amount": 108000,
+    "sgst_rate": 9,
+    "sgst_amount": 108000,
+    "total_tax": 216000,
+    "total_amount": 1416000,
+    "irn": "z1a2b3c4d5e6f7g8h9i0j1k2l3m4n5o6p7q8r9s0t1u2v3w4x5y6z7a8",
+    "_test_category": "FY_BOUNDARY",
+    "_expected_result": "FLAG_FOR_REVIEW",
+    "_complexity": "HIGH",
+    "_trap": "Invoice dated March 28, 2024 (FY 2023-24) being processed now. Check if within acceptance window. High value - needs director approval. Also check cumulative vendor limit."
+  },
+  {
+    "invoice_id": "INV-2024-0016",
+    "invoice_number": "SC/NOI/2024/790",
+    "invoice_date": "2024-10-15",
+    "vendor": {
+      "name": "Sharma Consulting",
+      "gstin": "09BQUPS7890K1Zj",
+      "pan": "BQUPS7890K",
+      "address": "B-12, Sector 62, Noida"
+    },
+    "buyer": {
+      "name": "FinanceGuard Solutions",
+      "gstin": "27AABCF9999K1ZX",
+      "address": "Mumbai"
+    },
+    "line_items": [
+      {
+        "description": "Consulting fees",
+        "hsn_sac": "998311",
+        "quantity": 1,
+        "unit": "LS",
+        "rate": 150000,
+        "amount": 150000
+      }
+    ],
+    "subtotal": 150000,
+    "igst_rate": 18,
+    "igst_amount": 27000,
+    "total_tax": 27000,
+    "total_amount": 177000,
+    "_test_category": "DATA_QUALITY_ISSUES",
+    "_expected_result": "FLAG_FOR_REVIEW",
+    "_complexity": "HIGH",
+    "_trap": "Multiple issues: 1) GSTIN has lowercase 'j' at end (invalid), 2) Vendor name doesn't match exactly, 3) Address truncated, 4) Buyer name truncated. Agent should handle OCR-like errors."
+  },
+  {
+    "invoice_id": "INV-2024-0017",
+    "invoice_number": "ABC/BLR/24-25/0100",
+    "invoice_date": "2024-10-05",
+    "vendor": {
+      "name": "ABC Contractors Pvt Ltd",
+      "gstin": "29AABCA9876N1ZQ",
+      "pan": "AABCA9876N",
+      "address": "123, Industrial Layout, Whitefield, Bangalore - 560066"
+    },
+    "buyer": {
+      "name": "FinanceGuard Solutions Private Limited",
+      "gstin": "27AABCF9999K1ZX",
+      "address": "Tower A, Mindspace, Goregaon East, Mumbai - 400063"
+    },
+    "line_items": [
+      {
+        "description": "Civil work - basement waterproofing",
+        "hsn_sac": "995421",
+        "quantity": 1,
+        "unit": "Job",
+        "rate": 2500000,
+        "amount": 2500000
+      }
+    ],
+    "subtotal": 2500000,
+    "igst_rate": 12,
+    "igst_amount": 300000,
+    "total_tax": 300000,
+    "total_amount": 2800000,
+    "irn": "h1i2j3k4l5m6n7o8p9q0r1s2t3u4v5w6x7y8z9a0b1c2d3e4f5g6h7i8",
+    "_test_category": "HIGH_VALUE_APPROVAL",
+    "_expected_result": "PASS_WITH_CFO_APPROVAL",
+    "_complexity": "MEDIUM",
+    "_trap": "Amount > 20L requires CFO approval. Check approval matrix. TDS 194C @2% for company."
+  }
+]

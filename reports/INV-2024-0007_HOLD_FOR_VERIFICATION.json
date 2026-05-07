@@ -1,0 +1,185 @@
+{
+  "invoice_id": "INV-2024-0007",
+  "overall_decision": "HOLD_FOR_VERIFICATION",
+  "compliance_score": 53,
+  "confidence": 0.926,
+  "requires_human_review": true,
+  "validation_results": {
+    "category_a_authenticity": {
+      "score": 1,
+      "max_score": 2,
+      "checks": {
+        "A1": {
+          "passed": true,
+          "confidence": 0.9,
+          "finding": "Invoice number '0TP/2024/1NV-0023' format valid"
+        },
+        "A2": {
+          "passed": false,
+          "confidence": 0.5,
+          "finding": "invoice_number or vendor_gstin is missing - cannot check duplicates"
+        }
+      }
+    },
+    "category_b_gst": {
+      "score": 1,
+      "max_score": 2,
+      "checks": {
+        "B1": {
+          "passed": false,
+          "confidence": 0.99,
+          "finding": "vendor_gstin is missing or null"
+        },
+        "B7": {
+          "passed": true,
+          "confidence": 0.95,
+          "finding": "RCM invoice - buyer pays GST, rate check skipped. REGULATORY CONFLICT: RCM invoice where TDS also applies \u2014 requires human review."
+        }
+      }
+    },
+    "category_c_arithmetic": {
+      "score": 1,
+      "max_score": 2,
+      "checks": {
+        "C1": {
+          "passed": false,
+          "confidence": 1.0,
+          "finding": "1 arithmetic error(s)"
+        },
+        "C2": {
+          "passed": true,
+          "confidence": 1.0,
+          "finding": "Subtotal matches: calculated Rs 0.00 vs stated Rs 0.00"
+        }
+      }
+    },
+    "category_d_tds": {
+      "score": 2,
+      "max_score": 2,
+      "checks": {
+        "D1": {
+          "passed": true,
+          "confidence": 1.0,
+          "finding": "TDS APPLICABLE | Section: 195 | The vendor is a foreign entity from the United States providing cloud infrastructure services, making Section 195 applicable, and the absence of PAN mandates a 20% TDS rate. REGULATORY CONFLICT: RCM invoice where TDS also applies \u2014 requires human review."
+        },
+        "D2": {
+          "passed": true,
+          "confidence": 1.0,
+          "finding": "Section 195 | Rate 20.0% | TDS Rs 141,950.00 | TDS is on the total amount excluding GST, as per Section 195 rules and the invoice indicating GST under RCM. | No PAN = 20% rate | Vendor: company | Service: technical"
+        }
+      }
+    },
+    "category_e_policy": {
+      "score": 0,
+      "max_score": 1,
+      "checks": {
+        "E1": {
+          "passed": true,
+          "confidence": 1.0,
+          "finding": "No PO amount on invoice - E1 skipped"
+        },
+        "E3": {
+          "passed": false,
+          "confidence": 0.99,
+          "finding": "vendor_gstin is missing or null - cannot verify approved vendor list"
+        }
+      }
+    }
+  },
+  "tds_summary": {
+    "tds_applicable": true,
+    "tds_section": "195",
+    "tds_rate": 20.0,
+    "tds_amount": 141950.0,
+    "special_rules_applied": [
+      "No PAN = 20% rate"
+    ]
+  },
+  "gst_summary": {
+    "gstin_valid": false,
+    "gstin_status": "Missing/Invalid",
+    "gst_type": "IGST (RCM)",
+    "cgst_rate": 0.0,
+    "sgst_rate": 0.0,
+    "igst_rate": 18.0
+  },
+  "audit_trail": [
+    {
+      "timestamp": "2024-01-01T12:00:01Z",
+      "check": "A1",
+      "passed": true,
+      "finding": "Invoice number '0TP/2024/1NV-0023' format valid",
+      "confidence": 0.9
+    },
+    {
+      "timestamp": "2024-01-01T12:00:02Z",
+      "check": "A2",
+      "passed": false,
+      "finding": "invoice_number or vendor_gstin is missing - cannot check duplicates",
+      "confidence": 0.5
+    },
+    {
+      "timestamp": "2024-01-01T12:00:03Z",
+      "check": "B1",
+      "passed": false,
+      "finding": "vendor_gstin is missing or null",
+      "confidence": 0.99
+    },
+    {
+      "timestamp": "2024-01-01T12:00:04Z",
+      "check": "B7",
+      "passed": true,
+      "finding": "RCM invoice - buyer pays GST, rate check skipped. REGULATORY CONFLICT: RCM invoice where TDS also applies \u2014 requires human review.",
+      "confidence": 0.95
+    },
+    {
+      "timestamp": "2024-01-01T12:00:05Z",
+      "check": "C1",
+      "passed": false,
+      "finding": "1 arithmetic error(s)",
+      "confidence": 1.0
+    },
+    {
+      "timestamp": "2024-01-01T12:00:06Z",
+      "check": "C2",
+      "passed": true,
+      "finding": "Subtotal matches: calculated Rs 0.00 vs stated Rs 0.00",
+      "confidence": 1.0
+    },
+    {
+      "timestamp": "2024-01-01T12:00:07Z",
+      "check": "D1",
+      "passed": true,
+      "finding": "TDS APPLICABLE | Section: 195 | The vendor is a foreign entity from the United States providing cloud infrastructure services, making Section 195 applicable, and the absence of PAN mandates a 20% TDS rate. REGULATORY CONFLICT: RCM invoice where TDS also applies \u2014 requires human review.",
+      "confidence": 1.0
+    },
+    {
+      "timestamp": "2024-01-01T12:00:08Z",
+      "check": "D2",
+      "passed": true,
+      "finding": "Section 195 | Rate 20.0% | TDS Rs 141,950.00 | TDS is on the total amount excluding GST, as per Section 195 rules and the invoice indicating GST under RCM. | No PAN = 20% rate | Vendor: company | Service: technical",
+      "confidence": 1.0
+    },
+    {
+      "timestamp": "2024-01-01T12:00:09Z",
+      "check": "E1",
+      "passed": true,
+      "finding": "No PO amount on invoice - E1 skipped",
+      "confidence": 1.0
+    },
+    {
+      "timestamp": "2024-01-01T12:00:10Z",
+      "check": "E3",
+      "passed": false,
+      "finding": "vendor_gstin is missing or null - cannot verify approved vendor list",
+      "confidence": 0.99
+    },
+    {
+      "timestamp": "2024-01-01T12:00:11Z",
+      "check": "RESOLVER",
+      "passed": false,
+      "finding": "Rule 0 (Missing critical data) fired because the critical field 'vendor_gstin' is missing or null, as explicitly indicated by check B1 ('vendor_gstin is missing or null') and check E3 ('vendor_gstin is missing or null - cannot verify approved vendor list'). This prevents further processing until the invoice is corrected to address the missing critical data.",
+      "confidence": 0.926
+    }
+  ]
+}

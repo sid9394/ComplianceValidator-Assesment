@@ -63,7 +63,21 @@ B1 includes a pre-processing step that fixes common OCR misreads in the digit po
 a GSTIN (positions 0, 1, 9–12): O→0, I→1, l→1. This prevents valid GSTINs from failing the
 regex check due to scanner artefacts in PDF-sourced invoices.
 
-### 7. Confidence-based escalation at 70%
+### 7. Priority-based resolver decision rules
+
+Checks are assigned one of three priority levels — HIGH, MEDIUM, LOW — that determine which
+resolver rule fires on failure. HIGH checks (A2, B1, B7, C1, C2, E3) are hard compliance
+violations: failure always produces `REJECTED` regardless of confidence. MEDIUM checks (A1,
+D1, D2) require judgment: failure produces `ESCALATE_TO_HUMAN`. The LOW check (E1) is a
+business policy gate that is frequently skipped and only escalates when a PO amount is
+present and the variance is material.
+
+This distinction is enforced at three levels: the `priority` field in every check tool's
+JSON output, the resolver task instructions, and the resolver agent's backstory. Each check
+tool returns its own priority so the resolver has the information inline rather than
+relying on a separate lookup.
+
+### 8. Confidence-based escalation at 70%
 
 The threshold follows the spec exactly. Low confidence typically arises in two situations:
 the Mock GSTIN API is unavailable (B1 drops to 0.70) or TDS determination is ambiguous (D1/D2
@@ -98,10 +112,30 @@ as valid and not penalise it.
 
 ### Duplicate detection across a batch
 The A2 check uses a `seen_invoices` list that grows across the entire batch run. The compound
-key `VENDOR_GSTIN::INVOICE_NUMBER` is checked on each invoice. The first occurrence passes;
-any subsequent occurrence with the same key fails A2, which triggers `REJECTED` immediately.
-For non-JSON sources where the invoice number is extracted by the LLM, the resolved number
-from the crew report is added to the seen-list after processing.
+key is `VENDOR_GSTIN::INVOICE_NUMBER::AMOUNT::DATE`. The first occurrence passes; any
+subsequent occurrence that matches exactly or reaches 95% average similarity across those
+three fields (GSTIN, invoice number, and amount — date is in the compound key to gate the
+365-day rolling window but is not included in the similarity ratio) fails A2, which triggers
+`REJECTED` immediately. Both exact and near-duplicates
+are hard rejections — the 95% similarity threshold is the discriminator, not the confidence
+score. For non-JSON sources where the invoice number is extracted by the LLM, the resolved
+number from the crew report is added to the seen-list after processing.
+
+### Temporal validity — invoice date vs processing date
+All GST and TDS rules are applied based on `invoice_date`, not the current processing date.
+For B7, invoices dated in March or April fall in the GST rate transition window; the tool
+flags these with confidence 0.70 and "transition period" in the finding, which triggers
+Rule 4 in the resolver and escalates to `ESCALATE_TO_HUMAN`. For D1/D2, the LLM is
+explicitly instructed to use the financial year of the invoice date when applying TDS
+threshold rules and section assignments.
+
+### Regulatory conflicts between checks
+Some invoices trigger two rules that are in tension. The primary case is an RCM invoice
+where B7 is skipped (buyer pays GST directly) but D1 determines TDS still applies. This
+is a genuine regulatory ambiguity: the payer cannot self-certify both that GST is reverse-
+charged and that TDS is deductible without human verification. When this occurs both
+findings include `REGULATORY CONFLICT`, which causes the resolver Rule 2 to fire and
+produce `ESCALATE_TO_HUMAN` regardless of confidence.
 
 ### Malformed or unprocessable invoices
 If the crew itself raises an unhandled exception (e.g. a catastrophic LLM API failure), the

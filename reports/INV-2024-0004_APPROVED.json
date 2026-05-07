@@ -1,0 +1,183 @@
+{
+  "invoice_id": "INV-2024-0004",
+  "overall_decision": "APPROVED",
+  "compliance_score": 100,
+  "confidence": 0.98,
+  "requires_human_review": false,
+  "validation_results": {
+    "category_a_authenticity": {
+      "score": 2,
+      "max_score": 2,
+      "checks": {
+        "A1": {
+          "passed": true,
+          "confidence": 0.9,
+          "finding": "Invoice number 'QS/MUM/2425/0042' format valid"
+        },
+        "A2": {
+          "passed": true,
+          "confidence": 1.0,
+          "finding": "No duplicate found"
+        }
+      }
+    },
+    "category_b_gst": {
+      "score": 2,
+      "max_score": 2,
+      "checks": {
+        "B1": {
+          "passed": true,
+          "confidence": 0.95,
+          "finding": "GSTIN '27AABCQ2345M1ZX' is valid, status: ACTIVE"
+        },
+        "B7": {
+          "passed": true,
+          "confidence": 0.97,
+          "finding": "Intra-state: CGST 2.5% equals SGST 2.5%"
+        }
+      }
+    },
+    "category_c_arithmetic": {
+      "score": 2,
+      "max_score": 2,
+      "checks": {
+        "C1": {
+          "passed": true,
+          "confidence": 1.0,
+          "finding": "All 2 line items correct"
+        },
+        "C2": {
+          "passed": true,
+          "confidence": 1.0,
+          "finding": "Subtotal matches: calculated Rs 17,000.00 vs stated Rs 17,000.00"
+        }
+      }
+    },
+    "category_d_tds": {
+      "score": 2,
+      "max_score": 2,
+      "checks": {
+        "D1": {
+          "passed": true,
+          "confidence": 1.0,
+          "finding": "TDS not applicable | Section: N/A | Section 194Q is the only applicable section for a goods supplier when the buyer's turnover exceeds Rs 10 Crore, but the cumulative purchase threshold of Rs 50,00,000 for the financial year has not been met, assuming no prior purchases and the current invoice amount is below Rs 50 lakh."
+        },
+        "D2": {
+          "passed": true,
+          "confidence": 1.0,
+          "finding": "Section N/A | Rate 0.0% | TDS Rs 0.00 | TDS is not applicable. | Vendor: N/A | Service: N/A"
+        }
+      }
+    },
+    "category_e_policy": {
+      "score": 1,
+      "max_score": 1,
+      "checks": {
+        "E1": {
+          "passed": true,
+          "confidence": 1.0,
+          "finding": "No PO amount on invoice - E1 skipped"
+        },
+        "E3": {
+          "passed": true,
+          "confidence": 1.0,
+          "finding": "Vendor 'Quick Office Supplies' is approved and ACTIVE"
+        }
+      }
+    }
+  },
+  "tds_summary": {
+    "tds_applicable": false,
+    "tds_section": "N/A",
+    "tds_rate": 0.0,
+    "tds_amount": 0.0,
+    "special_rules_applied": []
+  },
+  "gst_summary": {
+    "gstin_valid": true,
+    "gstin_status": "ACTIVE",
+    "gst_type": "intra-state",
+    "cgst_rate": 2.5,
+    "sgst_rate": 2.5,
+    "igst_rate": 0.0
+  },
+  "audit_trail": [
+    {
+      "timestamp": "2024-01-01T10:00:00.000Z",
+      "check": "A1",
+      "passed": true,
+      "finding": "Invoice number 'QS/MUM/2425/0042' format valid",
+      "confidence": 0.9
+    },
+    {
+      "timestamp": "2024-01-01T10:00:01.000Z",
+      "check": "A2",
+      "passed": true,
+      "finding": "No duplicate found",
+      "confidence": 1.0
+    },
+    {
+      "timestamp": "2024-01-01T10:00:02.000Z",
+      "check": "B1",
+      "passed": true,
+      "finding": "GSTIN '27AABCQ2345M1ZX' is valid, status: ACTIVE",
+      "confidence": 0.95
+    },
+    {
+      "timestamp": "2024-01-01T10:00:03.000Z",
+      "check": "B7",
+      "passed": true,
+      "finding": "Intra-state: CGST 2.5% equals SGST 2.5%",
+      "confidence": 0.97
+    },
+    {
+      "timestamp": "2024-01-01T10:00:04.000Z",
+      "check": "C1",
+      "passed": true,
+      "finding": "All 2 line items correct",
+      "confidence": 1.0
+    },
+    {
+      "timestamp": "2024-01-01T10:00:05.000Z",
+      "check": "C2",
+      "passed": true,
+      "finding": "Subtotal matches: calculated Rs 17,000.00 vs stated Rs 17,000.00",
+      "confidence": 1.0
+    },
+    {
+      "timestamp": "2024-01-01T10:00:06.000Z",
+      "check": "D1",
+      "passed": true,
+      "finding": "TDS not applicable | Section: N/A | Section 194Q is the only applicable section for a goods supplier when the buyer's turnover exceeds Rs 10 Crore, but the cumulative purchase threshold of Rs 50,00,000 for the financial year has not been met, assuming no prior purchases and the current invoice amount is below Rs 50 lakh.",
+      "confidence": 1.0
+    },
+    {
+      "timestamp": "2024-01-01T10:00:07.000Z",
+      "check": "D2",
+      "passed": true,
+      "finding": "Section N/A | Rate 0.0% | TDS Rs 0.00 | TDS is not applicable. | Vendor: N/A | Service: N/A",
+      "confidence": 1.0
+    },
+    {
+      "timestamp": "2024-01-01T10:00:08.000Z",
+      "check": "E1",
+      "passed": true,
+      "finding": "No PO amount on invoice - E1 skipped",
+      "confidence": 1.0
+    },
+    {
+      "timestamp": "2024-01-01T10:00:09.000Z",
+      "check": "E3",
+      "passed": true,
+      "finding": "Vendor 'Quick Office Supplies' is approved and ACTIVE",
+      "confidence": 1.0
+    },
+    {
+      "timestamp": "2024-01-01T10:00:10.000Z",
+      "check": "RESOLVER",
+      "passed": true,
+      "finding": "All critical data fields (invoice_number, vendor_gstin, total_amount) are present, so Rule 0 did not fire. All HIGH priority checks (A2, B1, B7, C1, C2, E3) passed, meaning Rule 1 did not fire. No check findings contained the explicit text 'REGULATORY CONFLICT', so Rule 2 did not fire. The average confidence across all non-skipped checks is 0.980, which is above the 0.70 threshold, and no MEDIUM priority checks (A1, D1, D2) produced contradictory or ambiguous results, so Rule 3 did not fire. No temporal ambiguity was detected, so Rule 4 did not fire. The total_amount of Rs 17,850 does not exceed Rs 10,00,000, so Rule 5 did not fire. The weighted compliance score was calculated as 100. Since the score is 95 or greater, Rule 6 dictates an APPROVED decision. Check E1 was skipped due to the absence of a PO amount on the invoice, but this did not constitute a material failure or impact the overall approval decision.",
+      "confidence": 0.98
+    }
+  ]
+}

@@ -1,23 +1,23 @@
 {
-  "invoice_id": "INV-2024-0010",
-  "overall_decision": "REJECTED",
-  "compliance_score": 89,
-  "confidence": 0.969,
-  "requires_human_review": true,
+  "invoice_id": "INV-2024-0001",
+  "overall_decision": "APPROVED",
+  "compliance_score": 95,
+  "confidence": 0.98,
+  "requires_human_review": false,
   "validation_results": {
     "category_a_authenticity": {
-      "score": 1,
+      "score": 2,
       "max_score": 2,
       "checks": {
         "A1": {
           "passed": true,
           "confidence": 0.9,
-          "finding": "Invoice number 'TS/MH/2024/001235' format valid"
+          "finding": "Invoice number 'TS/MH/2024/001234' format valid"
         },
         "A2": {
-          "passed": false,
-          "confidence": 0.9,
-          "finding": "NEAR-DUPLICATE \u2014 98.0% similar to previously seen invoice TS/MH/2024/001234 (threshold 95% across vendor_gstin, invoice_number, invoice_amount)"
+          "passed": true,
+          "confidence": 1.0,
+          "finding": "No duplicate found"
         }
       }
     },
@@ -60,12 +60,12 @@
         "D1": {
           "passed": true,
           "confidence": 1.0,
-          "finding": "TDS APPLICABLE | Section: 194J | The vendor type 'IT_SERVICES' and the 'Software Development' service are explicitly covered under section 194J, and the invoice amount exceeds the threshold."
+          "finding": "TDS APPLICABLE | Section: 194J | TDS is applicable under section 194J for software development services, classified as technical services, as the invoice amount of Rs 500,000 exceeds the annual threshold of Rs 30,000."
         },
         "D2": {
           "passed": true,
           "confidence": 1.0,
-          "finding": "Section 194J | Rate 2.0% | TDS Rs 10,000.00 | TDS is calculated on the subtotal (excluding GST) as per the general rule for section 194J. | Vendor: company | Service: technical"
+          "finding": "Section 194J | Rate 2.0% | TDS Rs 10,000.00 | TDS is calculated on the subtotal amount excluding GST as per CBDT Circular No. 23/2017, since GST is shown separately and section 194J is not an exception. | Vendor: N/A | Service: technical"
         }
       }
     },
@@ -103,81 +103,81 @@
   },
   "audit_trail": [
     {
-      "timestamp": "2024-09-15T10:00:01Z",
+      "timestamp": "2024-09-15T10:00:00Z",
       "check": "A1",
       "passed": true,
-      "finding": "Invoice number 'TS/MH/2024/001235' format valid",
+      "finding": "Invoice number 'TS/MH/2024/001234' format valid",
       "confidence": 0.9
     },
     {
-      "timestamp": "2024-09-15T10:00:02Z",
+      "timestamp": "2024-09-15T10:00:00Z",
       "check": "A2",
-      "passed": false,
-      "finding": "NEAR-DUPLICATE \u2014 98.0% similar to previously seen invoice TS/MH/2024/001234 (threshold 95% across vendor_gstin, invoice_number, invoice_amount)",
-      "confidence": 0.9
+      "passed": true,
+      "finding": "No duplicate found",
+      "confidence": 1.0
     },
     {
-      "timestamp": "2024-09-15T10:00:03Z",
+      "timestamp": "2024-09-15T10:00:00Z",
       "check": "B1",
       "passed": true,
       "finding": "GSTIN '27AABCT1234F1ZP' is valid, status: ACTIVE",
       "confidence": 0.95
     },
     {
-      "timestamp": "2024-09-15T10:00:04Z",
+      "timestamp": "2024-09-15T10:00:00Z",
       "check": "B7",
       "passed": true,
       "finding": "Intra-state: CGST 9.0% equals SGST 9.0%",
       "confidence": 0.97
     },
     {
-      "timestamp": "2024-09-15T10:00:05Z",
+      "timestamp": "2024-09-15T10:00:00Z",
       "check": "C1",
       "passed": true,
       "finding": "All 1 line items correct",
       "confidence": 1.0
     },
     {
-      "timestamp": "2024-09-15T10:00:06Z",
+      "timestamp": "2024-09-15T10:00:00Z",
       "check": "C2",
       "passed": true,
       "finding": "Subtotal matches: calculated Rs 500,000.00 vs stated Rs 500,000.00",
       "confidence": 1.0
     },
     {
-      "timestamp": "2024-09-15T10:00:07Z",
+      "timestamp": "2024-09-15T10:00:00Z",
       "check": "D1",
       "passed": true,
-      "finding": "TDS APPLICABLE | Section: 194J | The vendor type 'IT_SERVICES' and the 'Software Development' service are explicitly covered under section 194J, and the invoice amount exceeds the threshold.",
+      "finding": "TDS APPLICABLE | Section: 194J | TDS is applicable under section 194J for software development services, classified as technical services, as the invoice amount of Rs 500,000 exceeds the annual threshold of Rs 30,000.",
       "confidence": 1.0
     },
     {
-      "timestamp": "2024-09-15T10:00:08Z",
+      "timestamp": "2024-09-15T10:00:00Z",
       "check": "D2",
       "passed": true,
-      "finding": "Section 194J | Rate 2.0% | TDS Rs 10,000.00 | TDS is calculated on the subtotal (excluding GST) as per the general rule for section 194J. | Vendor: company | Service: technical",
+      "finding": "Section 194J | Rate 2.0% | TDS Rs 10,000.00 | TDS is calculated on the subtotal amount excluding GST as per CBDT Circular No. 23/2017, since GST is shown separately and section 194J is not an exception. | Vendor: N/A | Service: technical",
       "confidence": 1.0
     },
     {
-      "timestamp": "2024-09-15T10:00:09Z",
+      "timestamp": "2024-09-15T10:00:00Z",
       "check": "E1",
       "passed": true,
       "finding": "No PO amount on invoice - E1 skipped",
       "confidence": 1.0
     },
     {
-      "timestamp": "2024-09-15T10:00:10Z",
+      "timestamp": "2024-09-15T10:00:00Z",
       "check": "E3",
       "passed": true,
       "finding": "Vendor 'TechSoft Solutions Private Limited' is approved and ACTIVE",
       "confidence": 1.0
     },
     {
-      "timestamp": "2024-09-15T10:05:00Z",
-      "check": "RESOLVER_DECISION",
-      "passed": false,
-      "finding": "The invoice was REJECTED because check A2 (Duplicate Invoice Detection) failed. The system identified a near-duplicate invoice (98.0% similar to TS/MH/2024/001234). As per compliance policy, a duplicate invoice is always a rejection with no exceptions. This failure falls under Rule 1, which mandates an immediate REJECTED decision.",
-      "confidence": 0.969
+      "timestamp": "2024-09-15T10:00:05Z",
+      "check": "RESOLVER",
+      "passed": true,
+      "finding": "All critical data fields (invoice_number, vendor_gstin, total_amount) were present. All HIGH priority checks (A2, B1, B7, C1, C2, E3) passed, indicating no hard violations such as duplicate invoices, invalid GSTINs, GST type inconsistencies, arithmetic errors, or unapproved vendors. No explicit 'REGULATORY CONFLICT' was found in any check findings. The average confidence across all non-skipped checks is 0.980, which is above the 0.70 threshold, and no medium priority checks (A1, D1, D2) presented ambiguous results. The invoice total amount of Rs 590,000 does not exceed the high-value threshold of Rs 10,00,000. The calculated weighted compliance score is 95, which meets the auto-approve threshold (score >= 95). Check E1 was skipped as no PO amount was present on the invoice for comparison, but this did not trigger a rejection or escalation based on the defined rules.",
+      "confidence": 0.98
     }
   ]
 }

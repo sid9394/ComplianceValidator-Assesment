@@ -1,45 +1,185 @@
 {
   "invoice_id": "INV-2024-0014",
-  "overall_decision": "HOLD_FOR_VERIFICATION",
-  "compliance_score": 0,
-  "confidence": 0.0,
+  "overall_decision": "REJECTED",
+  "compliance_score": 88,
+  "confidence": 0.95,
   "requires_human_review": true,
   "validation_results": {
     "category_a_authenticity": {
-      "score": 0,
+      "score": 2,
       "max_score": 2,
-      "checks": {}
+      "checks": {
+        "A1": {
+          "passed": true,
+          "confidence": 0.9,
+          "finding": "Invoice number 'GL/DEL/24-25/5650' format valid"
+        },
+        "A2": {
+          "passed": true,
+          "confidence": 1.0,
+          "finding": "No duplicate found"
+        }
+      }
     },
     "category_b_gst": {
-      "score": 0,
+      "score": 2,
       "max_score": 2,
-      "checks": {}
+      "checks": {
+        "B1": {
+          "passed": true,
+          "confidence": 0.95,
+          "finding": "GSTIN '07AABCG5678H1Z9' is valid, status: ACTIVE"
+        },
+        "B7": {
+          "passed": true,
+          "confidence": 0.7,
+          "finding": "No GST on invoice - verify if exempt"
+        }
+      }
     },
     "category_c_arithmetic": {
-      "score": 0,
+      "score": 1,
       "max_score": 2,
-      "checks": {}
+      "checks": {
+        "C1": {
+          "passed": true,
+          "confidence": 1.0,
+          "finding": "All 1 line items correct"
+        },
+        "C2": {
+          "passed": false,
+          "confidence": 1.0,
+          "finding": "Subtotal MISMATCH: calculated Rs 85,000.00 vs stated Rs 0.00"
+        }
+      }
     },
     "category_d_tds": {
-      "score": 0,
+      "score": 2,
       "max_score": 2,
-      "checks": {}
+      "checks": {
+        "D1": {
+          "passed": true,
+          "confidence": 1.0,
+          "finding": "TDS not applicable | Section: N/A | Payment to a Goods Transport Agency (GTA) when the GTA pays GST under forward charge is exempt from TDS under section 194C, as indicated by 'gst_under_rcm: false' in the invoice."
+        },
+        "D2": {
+          "passed": true,
+          "confidence": 1.0,
+          "finding": "Section N/A | Rate 0.0% | TDS Rs 0.00 | TDS is not applicable due to GTA exemption. | GTA Exemption | Vendor: N/A | Service: N/A"
+        }
+      }
     },
     "category_e_policy": {
-      "score": 0,
-      "max_score": 2,
-      "checks": {}
+      "score": 1,
+      "max_score": 1,
+      "checks": {
+        "E1": {
+          "passed": true,
+          "confidence": 1.0,
+          "finding": "No PO amount on invoice - E1 skipped"
+        },
+        "E3": {
+          "passed": true,
+          "confidence": 1.0,
+          "finding": "Vendor 'Global Logistics & Transport Co.' is approved and ACTIVE"
+        }
+      }
     }
   },
-  "tds_summary": {},
-  "gst_summary": {},
+  "tds_summary": {
+    "tds_applicable": false,
+    "tds_section": "N/A",
+    "tds_rate": 0.0,
+    "tds_amount": 0.0,
+    "special_rules_applied": [
+      "GTA Exemption"
+    ]
+  },
+  "gst_summary": {
+    "gstin_valid": true,
+    "gstin_status": "ACTIVE",
+    "gst_type": "Exempt",
+    "cgst_rate": 0.0,
+    "sgst_rate": 0.0,
+    "igst_rate": 0.0
+  },
   "audit_trail": [
     {
-      "timestamp": "2026-05-06T22:23:24.625975",
-      "check": "SYSTEM",
+      "timestamp": "2024-07-15T10:00:00Z",
+      "check": "A1",
+      "passed": true,
+      "finding": "Invoice number 'GL/DEL/24-25/5650' format valid",
+      "confidence": 0.9
+    },
+    {
+      "timestamp": "2024-07-15T10:00:00Z",
+      "check": "A2",
+      "passed": true,
+      "finding": "No duplicate found",
+      "confidence": 1.0
+    },
+    {
+      "timestamp": "2024-07-15T10:00:00Z",
+      "check": "B1",
+      "passed": true,
+      "finding": "GSTIN '07AABCG5678H1Z9' is valid, status: ACTIVE",
+      "confidence": 0.95
+    },
+    {
+      "timestamp": "2024-07-15T10:00:00Z",
+      "check": "B7",
+      "passed": true,
+      "finding": "No GST on invoice - verify if exempt",
+      "confidence": 0.7
+    },
+    {
+      "timestamp": "2024-07-15T10:00:00Z",
+      "check": "C1",
+      "passed": true,
+      "finding": "All 1 line items correct",
+      "confidence": 1.0
+    },
+    {
+      "timestamp": "2024-07-15T10:00:00Z",
+      "check": "C2",
       "passed": false,
-      "finding": "Processing error: litellm.RateLimitError: RateLimitError: GroqException - {\"error\":{\"message\":\"Request too large for model `llama-3.1-8b-instant` in organization `org_01kqm8yw6tew4snxd1kf8qzd91` service tier `on_demand` on tokens per minute (TPM): Limit 6000, Requested 7727, please reduce your message size and try again. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing\",\"type\":\"tokens\",\"code\":\"rate_limit_exceeded\"}}\n",
-      "confidence": 0.0
+      "finding": "Subtotal MISMATCH: calculated Rs 85,000.00 vs stated Rs 0.00",
+      "confidence": 1.0
+    },
+    {
+      "timestamp": "2024-07-15T10:00:00Z",
+      "check": "D1",
+      "passed": true,
+      "finding": "TDS not applicable | Section: N/A | Payment to a Goods Transport Agency (GTA) when the GTA pays GST under forward charge is exempt from TDS under section 194C, as indicated by 'gst_under_rcm: false' in the invoice.",
+      "confidence": 1.0
+    },
+    {
+      "timestamp": "2024-07-15T10:00:00Z",
+      "check": "D2",
+      "passed": true,
+      "finding": "Section N/A | Rate 0.0% | TDS Rs 0.00 | TDS is not applicable due to GTA exemption. | GTA Exemption | Vendor: N/A | Service: N/A",
+      "confidence": 1.0
+    },
+    {
+      "timestamp": "2024-07-15T10:00:00Z",
+      "check": "E1",
+      "passed": true,
+      "finding": "No PO amount on invoice - E1 skipped",
+      "confidence": 1.0
+    },
+    {
+      "timestamp": "2024-07-15T10:00:00Z",
+      "check": "E3",
+      "passed": true,
+      "finding": "Vendor 'Global Logistics & Transport Co.' is approved and ACTIVE",
+      "confidence": 1.0
+    },
+    {
+      "timestamp": "2024-07-15T10:00:01Z",
+      "check": "Resolver",
+      "passed": false,
+      "finding": "Rule 1 fired: Check C2 (Subtotal Mismatch) failed. This is a HIGH priority check, indicating a critical arithmetic error where the calculated subtotal (Rs 85,000.00) does not match the stated subtotal (Rs 0.00). High priority failures always result in a REJECTED decision.",
+      "confidence": 0.95
     }
   ]
 }

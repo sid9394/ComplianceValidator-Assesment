@@ -61,6 +61,15 @@ if ENABLE_RESPONSE_CACHE:
 
 GSTIN_REGEX_PATTERN = r"^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$"
 
+# Priority level for each check — resolver uses this to determine which rule fires
+_CHECK_PRIORITIES: dict = {
+    "A1": "MEDIUM", "A2": "HIGH",
+    "B1": "HIGH",   "B7": "HIGH",
+    "C1": "HIGH",   "C2": "HIGH",
+    "D1": "MEDIUM", "D2": "MEDIUM",
+    "E1": "LOW",    "E3": "HIGH",
+}
+
 # D1 stores the LLM result here, D2 reads from it so we only make one LLM call per invoice
 _tds_cache: dict = {}
 
@@ -172,13 +181,17 @@ def call_llm(prompt: str) -> str:
             return response.choices[0].message.content.strip()
         except Exception as e:
             err = str(e).lower()
-            is_rate_limit = "429" in err or "rate limit" in err or "resource exhausted" in err
-            if is_rate_limit:
+            is_transient = any(k in err for k in (
+                "429", "rate limit", "resource exhausted",
+                "connection", "timeout", "timed out",
+                "503", "502", "500", "overloaded", "service unavailable",
+            ))
+            if is_transient:
                 if attempt < len(RETRY_WAIT_SECONDS):
-                    print(f"  [{LLM_PROVIDER}] Rate limit hit. Waiting {wait}s (attempt {attempt}/{len(RETRY_WAIT_SECONDS)})...")
+                    print(f"  [{LLM_PROVIDER}] Transient LLM error (attempt {attempt}/{len(RETRY_WAIT_SECONDS)}), waiting {wait}s: {e}")
                     time.sleep(wait)
                 else:
-                    raise Exception(f"Rate limit exceeded after {len(RETRY_WAIT_SECONDS)} retries: {e}")
+                    raise Exception(f"LLM call failed after {len(RETRY_WAIT_SECONDS)} retries: {e}")
             else:
                 raise e
     raise Exception("LLM call failed")
@@ -362,6 +375,12 @@ Determine TDS for this invoice. Check all of these:
 - Foreign vendor = section 195, use DTAA rate if country available
 - No PAN = 20% rate
 - LDC valid for 194C, 194J, 194I, 194H only
+- 194Q threshold is CUMULATIVE annual purchases from this vendor in the FY, not the single invoice amount. If no prior purchase history is provided, assume the threshold has NOT been crossed and treat 194Q as not applicable unless the invoice itself exceeds Rs 50 lakh.
+
+CRITICAL CONSISTENCY RULE: d1 and d2 MUST agree on TDS applicability.
+- If d1 sets tds_applicable=false, then d2 MUST set tds_section="N/A", tds_rate=0, tds_base_amount=0, tds_amount=0.
+- If d1 sets tds_applicable=true with a section, d2 MUST use that same section.
+- Never let d1 and d2 contradict each other on whether TDS applies.
 
 Respond ONLY with this JSON, no other text:
 {{
@@ -401,6 +420,13 @@ Respond ONLY with this JSON, no other text:
     except Exception as e:
         result = fallback(f"LLM call failed: {e}", "ERROR")
 
+    # Enforce D1/D2 consistency — if D1 says not applicable, D2 must agree
+    d1 = result.get("d1", {})
+    d2 = result.get("d2", {})
+    if not d1.get("tds_applicable", True) and d2.get("tds_section", "N/A") not in ("N/A", "", None):
+        result["d2"] = {**d2, "tds_section": "N/A", "tds_rate": 0.0,
+                        "tds_base_amount": 0.0, "tds_amount": 0.0}
+
     _tds_cache[invoice_id] = result
     if ENABLE_VENDOR_TDS_CACHE:
         _vendor_tds_cache[_vendor_tds_key(vendor_record, invoice)] = result
@@ -423,8 +449,8 @@ def check_invoice_format(invoice_number: str) -> str:
     Returns: JSON with check_id A1, passed, confidence, finding."""
     try:
         if not invoice_number:
-            return json.dumps({"check_id": "A1", "passed": False, "confidence": 0.99,
-                               "finding": "Invoice number is missing or null"})
+            return json.dumps({"check_id": "A1", "priority": "MEDIUM", "passed": False,
+                               "confidence": 0.99, "finding": "Invoice number is missing or null"})
         num = invoice_number.strip()
 
         # Indian invoice numbers don't follow one standard format so I check against a few patterns
@@ -437,6 +463,7 @@ def check_invoice_format(invoice_number: str) -> str:
 
         return json.dumps({
             "check_id":   "A1",
+            "priority":   "MEDIUM",
             "passed":     is_valid,
             "confidence": 0.90,
             "finding":    f"Invoice number '{num}' format {'valid' if is_valid else 'INVALID'}",
@@ -459,8 +486,8 @@ def check_duplicate_invoice(invoice_number: str, vendor_gstin: str, seen_invoice
     Returns: JSON with check_id A2, passed, confidence, finding."""
     try:
         if not vendor_gstin or not invoice_number:
-            return json.dumps({"check_id": "A2", "passed": False, "confidence": 0.50,
-                               "finding": "invoice_number or vendor_gstin is missing - cannot check duplicates"})
+            return json.dumps({"check_id": "A2", "priority": "HIGH", "passed": False,
+                               "confidence": 0.50, "finding": "invoice_number or vendor_gstin is missing - cannot check duplicates"})
 
         seen       = json.loads(seen_invoices_json) if seen_invoices_json else []
         gstin_c    = (vendor_gstin or "").strip().upper()
@@ -500,6 +527,7 @@ def check_duplicate_invoice(invoice_number: str, vendor_gstin: str, seen_invoice
         if is_exact:
             return json.dumps({
                 "check_id":   "A2",
+                "priority":   "HIGH",
                 "passed":     False,
                 "confidence": 1.00,
                 "finding":    "EXACT DUPLICATE - same vendor, invoice number, and amount already seen in this batch",
@@ -510,6 +538,7 @@ def check_duplicate_invoice(invoice_number: str, vendor_gstin: str, seen_invoice
         if near_match:
             return json.dumps({
                 "check_id":   "A2",
+                "priority":   "HIGH",
                 "passed":     False,
                 "confidence": 0.90,
                 "finding":    (f"NEAR-DUPLICATE - {near_match['similarity']*100:.1f}% similar to "
@@ -521,6 +550,7 @@ def check_duplicate_invoice(invoice_number: str, vendor_gstin: str, seen_invoice
 
         return json.dumps({
             "check_id":   "A2",
+            "priority":   "HIGH",
             "passed":     True,
             "confidence": 1.00,
             "finding":    "No duplicate found",
@@ -543,14 +573,15 @@ def check_gstin_format(vendor_gstin: str) -> str:
     Returns: JSON with check_id B1, passed, confidence, finding."""
     try:
         if not vendor_gstin:
-            return json.dumps({"check_id": "B1", "passed": False, "confidence": 0.99,
-                               "finding": "vendor_gstin is missing or null"})
+            return json.dumps({"check_id": "B1", "priority": "HIGH", "passed": False,
+                               "confidence": 0.99, "finding": "vendor_gstin is missing or null"})
         gstin = fix_gstin_ocr(vendor_gstin)
 
         # format check
         if not re.match(GSTIN_REGEX_PATTERN, gstin):
             return json.dumps({
                 "check_id":   "B1",
+                "priority":   "HIGH",
                 "passed":     False,
                 "confidence": 0.98,
                 "finding":    f"GSTIN '{gstin}' does not match the 15-char format",
@@ -569,6 +600,7 @@ def check_gstin_format(vendor_gstin: str) -> str:
 
         result = json.dumps({
             "check_id":   "B1",
+            "priority":   "HIGH",
             "passed":     passed,
             "confidence": 0.95 if api_ok else 0.70,
             "finding":    f"GSTIN '{gstin}' is {'valid, status: ' + status if passed else 'FAILED - status: ' + status}",
@@ -608,38 +640,44 @@ def check_gst_rate_consistency(invoice_json: str) -> str:
 
         # RCM means the buyer pays the GST, so the rate check doesn't apply here
         if inv.get("gst_under_rcm") or inv.get("rcm_applicable"):
-            return json.dumps({"check_id": "B7", "passed": True, "confidence": 0.95,
+            return json.dumps({"check_id": "B7", "priority": "HIGH", "passed": True,
+                               "confidence": 0.95,
                                "finding": "RCM invoice - buyer pays GST, rate check skipped",
                                "evidence": {"rcm": True}})
 
         # foreign vendors don't charge Indian GST
         vendor = inv.get("vendor", {})
         if not vendor.get("gstin") and vendor.get("country"):
-            return json.dumps({"check_id": "B7", "passed": True, "confidence": 0.95,
+            return json.dumps({"check_id": "B7", "priority": "HIGH", "passed": True,
+                               "confidence": 0.95,
                                "finding": "Foreign vendor - Indian GST not applicable",
                                "evidence": {"foreign_vendor": True}})
 
         # mixing CGST/SGST and IGST on the same invoice is always wrong
         if has_cgst_sgst and has_igst:
-            return json.dumps({"check_id": "B7", "passed": False, "confidence": 0.99,
+            return json.dumps({"check_id": "B7", "priority": "HIGH", "passed": False,
+                               "confidence": 0.99,
                                "finding": "INVALID - invoice mixes CGST/SGST with IGST",
                                "evidence": {"cgst_rate": cgst, "sgst_rate": sgst, "igst_rate": igst}})
 
         # intra-state: CGST and SGST must be equal
         if has_cgst_sgst:
             passed = abs(cgst - sgst) < 0.01 and abs(cgst_amt - sgst_amt) < 1.0
-            return json.dumps({"check_id": "B7", "passed": passed, "confidence": 0.97,
+            return json.dumps({"check_id": "B7", "priority": "HIGH", "passed": passed,
+                               "confidence": 0.97,
                                "finding": f"Intra-state: CGST {cgst}% {'equals' if passed else 'does NOT equal'} SGST {sgst}%",
                                "evidence": {"type": "intra-state", "cgst_rate": cgst, "sgst_rate": sgst}})
 
         # inter-state: IGST only
         if has_igst:
-            return json.dumps({"check_id": "B7", "passed": True, "confidence": 0.97,
+            return json.dumps({"check_id": "B7", "priority": "HIGH", "passed": True,
+                               "confidence": 0.97,
                                "finding": f"Inter-state: IGST at {igst}% applied correctly",
                                "evidence": {"type": "inter-state", "igst_rate": igst}})
 
         # no GST at all - could be an exempt supply
-        return json.dumps({"check_id": "B7", "passed": True, "confidence": 0.70,
+        return json.dumps({"check_id": "B7", "priority": "HIGH", "passed": True,
+                           "confidence": 0.70,
                            "finding": "No GST on invoice - verify if exempt",
                            "evidence": {"cgst": cgst, "sgst": sgst, "igst": igst}})
     except Exception as e:
@@ -663,8 +701,8 @@ def check_line_item_arithmetic(line_items_json: str) -> str:
                                "finding": "line_items_json is empty - pass the line_items array as a JSON string"})
         items = json.loads(line_items_json)
         if not items:
-            return json.dumps({"check_id": "C1", "passed": False, "confidence": 0.50,
-                               "finding": "No line items found"})
+            return json.dumps({"check_id": "C1", "priority": "HIGH", "passed": False,
+                               "confidence": 0.50, "finding": "No line items found"})
 
         errors = []
         for i, item in enumerate(items, start=1):
@@ -682,6 +720,7 @@ def check_line_item_arithmetic(line_items_json: str) -> str:
         passed = len(errors) == 0
         return json.dumps({
             "check_id":   "C1",
+            "priority":   "HIGH",
             "passed":     passed,
             "confidence": 1.00,
             "finding":    f"All {len(items)} line items correct" if passed else f"{len(errors)} arithmetic error(s)",
@@ -711,6 +750,7 @@ def check_subtotal_matches_line_items(invoice_json: str) -> str:
 
         return json.dumps({
             "check_id":   "C2",
+            "priority":   "HIGH",
             "passed":     passed,
             "confidence": 1.00,
             "finding":    f"Subtotal {'matches' if passed else 'MISMATCH'}: calculated Rs {calculated:,.2f} vs stated Rs {stated:,.2f}",
@@ -753,6 +793,7 @@ def check_tds_applicability(invoice_json: str, vendor_registry_json: str) -> str
 
         return json.dumps({
             "check_id":       "D1",
+            "priority":       "MEDIUM",
             "passed":         True,
             "confidence":     confidence,
             "tds_applicable": applicable,
@@ -815,6 +856,7 @@ def check_tds_section_and_rate(invoice_json: str, vendor_registry_json: str) -> 
 
         return json.dumps({
             "check_id":             "D2",
+            "priority":             "MEDIUM",
             "passed":               True,
             "confidence":           round(confidence, 3),
             "tds_section":          section,
@@ -865,6 +907,7 @@ def check_po_amount_tolerance(invoice_json: str) -> str:
         if po_amount == 0:
             return json.dumps({
                 "check_id":   "E1",
+                "priority":   "LOW",
                 "passed":     True,
                 "confidence": 1.00,
                 "skipped":    True,
@@ -879,6 +922,7 @@ def check_po_amount_tolerance(invoice_json: str) -> str:
 
         return json.dumps({
             "check_id":   "E1",
+            "priority":   "LOW",
             "passed":     passed,
             "confidence": 0.99,
             "skipped":    False,
@@ -900,14 +944,16 @@ def check_approved_vendor(vendor_gstin: str, vendor_registry_json: str) -> str:
     Returns: JSON with check_id E3, passed, confidence, finding."""
     try:
         if not vendor_gstin:
-            return json.dumps({"check_id": "E3", "passed": False, "confidence": 0.99,
+            return json.dumps({"check_id": "E3", "priority": "HIGH", "passed": False,
+                               "confidence": 0.99,
                                "finding": "vendor_gstin is missing or null - cannot verify approved vendor list"})
         registry = json.loads(vendor_registry_json)
         gstin    = fix_gstin_ocr(vendor_gstin)
         vendor   = find_vendor(gstin, registry)
 
         if not vendor:
-            return json.dumps({"check_id": "E3", "passed": False, "confidence": 0.99,
+            return json.dumps({"check_id": "E3", "priority": "HIGH", "passed": False,
+                               "confidence": 0.99,
                                "finding": f"Vendor GSTIN '{gstin}' not in approved registry",
                                "evidence": {"gstin": gstin, "found": False}})
 
@@ -915,13 +961,15 @@ def check_approved_vendor(vendor_gstin: str, vendor_registry_json: str) -> str:
         active = status == "ACTIVE"
 
         if not active:
-            return json.dumps({"check_id": "E3", "passed": False, "confidence": 0.99,
+            return json.dumps({"check_id": "E3", "priority": "HIGH", "passed": False,
+                               "confidence": 0.99,
                                "finding": f"Vendor '{vendor.get('legal_name', '')}' status is '{status}'",
                                "evidence": {"gstin": gstin, "status": status,
                                             "suspension_date": vendor.get("suspension_date", "N/A")}})
 
         return json.dumps({
             "check_id":   "E3",
+            "priority":   "HIGH",
             "passed":     True,
             "confidence": 1.00,
             "finding":    f"Vendor '{vendor.get('legal_name', '')}' is approved and ACTIVE",

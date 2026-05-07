@@ -63,23 +63,28 @@ Input File(s)
 - **Role**: Senior GST and TDS Compliance Validator
 - **Tools**: All 10 check tools (see Tools section below)
 - **Input**: Normalized invoice from Extractor, vendor registry, seen-invoices list
-- **Output**: Results for all 10 checks (A1–E3), each with `passed`, `confidence`, `finding`,
-  and `evidence`
-- **Key behaviour**: Calls tools in strict order. Never skips a check without a documented
-  reason. Marks checks as skipped (not failed) when genuinely not applicable.
+- **Output**: Results for all 10 checks (A1–E3), each with `passed`, `priority`, `confidence`,
+  `finding`, and `evidence`
+- **Key behaviour**: Calls tools in strict order. Applies OCR normalisation (O→0, I→1) before
+  string matching in A1, A2, B1, E3. Uses `invoice_date` for all temporal rule application.
+  Flags regulatory conflicts explicitly (e.g., RCM + TDS) in findings. Never skips a check
+  without a documented reason. Marks checks as skipped (not failed) when genuinely not applicable.
 
 ### 3. Resolver Agent
 - **Role**: Lead Compliance Decision Officer
 - **Tools**: None
-- **Input**: All 10 check results from Validator
+- **Input**: All 10 check results from Validator, each carrying a `priority` field
 - **Output**: `overall_decision`, `compliance_score`, `confidence`, `requires_human_review`,
   lists of failed and skipped checks, decision reasoning
-- **Decision rules** (applied in priority order):
-  1. A2, B1, C1, or C2 failed → `REJECTED`
-  2. Average confidence < 0.70 → `ESCALATE_TO_HUMAN`
-  3. Critical fields missing → `HOLD_FOR_VERIFICATION`
-  4. All checks pass → `APPROVED`
-  5. Any other combination → reasoned judgment
+- **Valid decisions**: exactly `APPROVED`, `REJECTED`, `ESCALATE_TO_HUMAN`, `HOLD_FOR_VERIFICATION`
+- **Decision rules** (applied in strict priority order — first rule that fires wins):
+  1. `invoice_number`, `vendor_gstin`, or `total_amount` null/missing → `HOLD_FOR_VERIFICATION`
+  2. Any HIGH priority check failed (A2, B1, B7, C1, C2, E3) → `REJECTED` — no exceptions
+  3. Any check finding contains `REGULATORY CONFLICT` → `ESCALATE_TO_HUMAN`
+  4. Average confidence < 0.70 or any MEDIUM check (A1, D1, D2) is ambiguous → `ESCALATE_TO_HUMAN`
+  5. Any check flagged `transition period` with confidence < 0.80 → `ESCALATE_TO_HUMAN`
+  6. All non-skipped checks passed and confidence ≥ 0.70 → `APPROVED`
+  7. Any other combination → reasoned judgment (LOW priority failures noted, not rejected)
 
 ### 4. Reporter Agent
 - **Role**: Compliance Report Formatting Specialist
@@ -93,18 +98,20 @@ Input File(s)
 
 ## Tools (attached to Validator Agent)
 
-| Check | Tool | Method | External calls |
-|-------|------|--------|---------------|
-| A1 | Check Invoice Number Format | Regex (3 patterns for Indian invoice formats) | None |
-| A2 | Check for Duplicate Invoice | GSTIN::invoice_number key lookup in seen-list | None |
-| B1 | Validate GSTIN Format and Active Status | Regex + OCR correction + Mock API | Mock API (GSTIN verify) |
-| B7 | Check GST Rate Consistency | Arithmetic: CGST=SGST for intra-state, IGST for inter-state | None |
-| C1 | Check Line Item Arithmetic | qty × rate = amount per line, Rs 1 tolerance | None |
-| C2 | Check Subtotal Matches Sum of Line Items | Sum(line items) = subtotal, Rs 1 tolerance | None |
-| D1 | Check TDS Applicability | LLM call with TDS rules + vendor context | LLM (cached) |
-| D2 | Determine TDS Section and Rate | Reads D1 cache, sanity-checks LLM math | None (cache hit) |
-| E1 | Check Invoice Amount Within PO Tolerance | ±5% variance check vs PO amount | None |
-| E3 | Check Vendor is on Approved Vendor List | Lookup in vendor_registry.json, check ACTIVE status | None |
+Every tool returns a `priority` field in its JSON output so the resolver can reference it inline.
+
+| Check | Priority | Tool | Method | External calls |
+|-------|----------|------|--------|---------------|
+| A1 | MEDIUM | Check Invoice Number Format | Regex (3 patterns for Indian invoice formats) with OCR normalisation | None |
+| A2 | HIGH | Check for Duplicate Invoice | `GSTIN::invoice_number::amount::date` compound key, 95% similarity threshold | None |
+| B1 | HIGH | Validate GSTIN Format and Active Status | Regex + OCR correction + Mock API active-status check | Mock API (GSTIN verify) |
+| B7 | HIGH | Check GST Rate Consistency | CGST=SGST for intra-state, IGST only for inter-state; RCM/foreign vendor skipped | None |
+| C1 | HIGH | Check Line Item Arithmetic | qty × rate = amount per line, Rs 1 tolerance | None |
+| C2 | HIGH | Check Subtotal Matches Sum of Line Items | Sum(line items) = subtotal, Rs 1 tolerance | None |
+| D1 | MEDIUM | Check TDS Applicability | LLM call with TDS rules + vendor context; result cached for D2 | LLM (cached) |
+| D2 | MEDIUM | Determine TDS Section and Rate | Reads D1 cache, sanity-checks LLM arithmetic | None (cache hit) |
+| E1 | LOW | Check Invoice Amount Within PO Tolerance | ±5% variance check vs PO amount; skipped when no PO amount | None |
+| E3 | HIGH | Check Vendor is on Approved Vendor List | Lookup in vendor_registry.json; checks presence AND ACTIVE status | None |
 
 ---
 
@@ -136,9 +143,10 @@ main.py
 | Component | Purpose |
 |-----------|---------|
 | CrewAI 1.14.4 | Multi-agent orchestration, sequential task pipeline |
+| crewai-tools 1.14.4 | `@tool` decorator and base tool infrastructure |
 | LiteLLM | Provider-agnostic LLM calls (Gemini or Groq) |
 | Google Gemini 2.5 Flash | Primary LLM (TDS reasoning, invoice normalization) |
-| Groq llama-3.3-70b | Alternate LLM provider |
+| Groq llama-3.3-70b-versatile | Alternate LLM provider |
 | pdfplumber | PDF text extraction |
 | python-docx | Word document text extraction |
 | Flask | Mock GSTIN verification API server |
@@ -156,6 +164,16 @@ is passed and the extractor's normalized output is used by the validator.
 **D1/D2 shared LLM call**: TDS determination (D1) and section/rate calculation (D2) share
 a single LLM call via an in-process cache keyed by invoice_id. D1 stores the result; D2
 reads it for free. The cache is cleared after each invoice to keep memory flat.
+
+**Three-layer caching** (all toggleable in `config/config.py`):
+
+| Cache | Config flag | What it avoids |
+|-------|-------------|----------------|
+| `ENABLE_RESPONSE_CACHE` | LiteLLM in-memory cache | Duplicate LLM API calls when the agent calls the same tool twice |
+| `ENABLE_GSTIN_CACHE` | Per-run dict keyed by GSTIN | Repeated Mock API lookups for the same GSTIN within one batch |
+| `ENABLE_VENDOR_TDS_CACHE` | Cross-invoice dict keyed by vendor+amount bracket | Full LLM TDS call when the same vendor appears in multiple invoices |
+
+The vendor TDS cache key includes vendor_id, 206AB flag, LDC flag, country, and invoice amount bracket (low/mid/high) so vendors that appear at materially different amounts get a fresh determination.
 
 **Confidence-based escalation**: Any invoice with average check confidence below 0.70 is
 escalated for human review rather than auto-decided. Low confidence typically arises from

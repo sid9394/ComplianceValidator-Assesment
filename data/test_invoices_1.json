@@ -1,0 +1,251 @@
+[
+  {
+    "invoice_id": "INV-2024-0001",
+    "invoice_number": "TS/MH/2024/001234",
+    "invoice_date": "2024-09-15",
+    "vendor": {
+      "name": "TechSoft Solutions Private Limited",
+      "gstin": "27AABCT1234F1ZP",
+      "pan": "AABCT1234F",
+      "address": "Unit 405, Tech Park, Andheri East, Mumbai - 400069"
+    },
+    "buyer": {
+      "name": "FinanceGuard Solutions Private Limited",
+      "gstin": "27AABCF9999K1ZX",
+      "address": "Tower A, Mindspace, Goregaon East, Mumbai - 400063"
+    },
+    "line_items": [
+      {
+        "description": "Software Development Services - CRM Module",
+        "hsn_sac": "998315",
+        "quantity": 1,
+        "unit": "Project",
+        "rate": 500000,
+        "amount": 500000
+      }
+    ],
+    "subtotal": 500000,
+    "cgst_rate": 9,
+    "cgst_amount": 45000,
+    "sgst_rate": 9,
+    "sgst_amount": 45000,
+    "igst_rate": 0,
+    "igst_amount": 0,
+    "total_tax": 90000,
+    "total_amount": 590000,
+    "irn": "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6a7b8",
+    "irn_date": "2024-09-15",
+    "qr_code_present": true,
+    "payment_terms": "Net 30",
+    "po_reference": "PO-2024-IT-0456",
+    "notes": "As per MSA dated 01-Apr-2024",
+    "_test_category": "STANDARD_VALID",
+    "_expected_result": "PASS",
+    "_complexity": "LOW"
+  },
+  {
+    "invoice_id": "INV-2024-0002",
+    "invoice_number": "GL/DEL/24-25/5678",
+    "invoice_date": "2024-09-20",
+    "vendor": {
+      "name": "Global Logistics & Transport Co.",
+      "gstin": "07AABCG5678H1Z9",
+      "pan": "AABCG5678H",
+      "address": "Plot 23, Industrial Area, Okhla Phase-II, New Delhi - 110020"
+    },
+    "buyer": {
+      "name": "FinanceGuard Solutions Private Limited",
+      "gstin": "27AABCF9999K1ZX",
+      "address": "Tower A, Mindspace, Goregaon East, Mumbai - 400063"
+    },
+    "line_items": [
+      {
+        "description": "Freight charges - Delhi to Mumbai",
+        "hsn_sac": "996511",
+        "quantity": 1,
+        "unit": "Shipment",
+        "rate": 45000,
+        "amount": 45000
+      }
+    ],
+    "subtotal": 45000,
+    "cgst_rate": 0,
+    "cgst_amount": 0,
+    "sgst_rate": 0,
+    "sgst_amount": 0,
+    "igst_rate": 5,
+    "igst_amount": 2250,
+    "total_tax": 2250,
+    "total_amount": 47250,
+    "irn": null,
+    "payment_terms": "Net 15",
+    "transport_mode": "Road",
+    "vehicle_number": "DL01AB1234",
+    "eway_bill": "331024567890",
+    "_test_category": "INTERSTATE_GTA",
+    "_expected_result": "PASS",
+    "_complexity": "MEDIUM",
+    "_notes": "GTA paying GST under forward charge. Check if TDS 194C applies - vendor has lower deduction cert."
+  },
+  {
+    "invoice_id": "INV-2024-0003",
+    "invoice_number": "SC/NOI/2024/789",
+    "invoice_date": "2024-10-01",
+    "vendor": {
+      "name": "Sharma Consulting & Advisory",
+      "gstin": "09BQUPS7890K1ZJ",
+      "pan": "BQUPS7890K",
+      "address": "B-12, Sector 62, Noida - 201301"
+    },
+    "buyer": {
+      "name": "FinanceGuard Solutions Private Limited",
+      "gstin": "27AABCF9999K1ZX",
+      "address": "Tower A, Mindspace, Goregaon East, Mumbai - 400063"
+    },
+    "line_items": [
+      {
+        "description": "Business Strategy Consulting - Q2 Review",
+        "hsn_sac": "998311",
+        "quantity": 40,
+        "unit": "Hours",
+        "rate": 5000,
+        "amount": 200000
+      }
+    ],
+    "subtotal": 200000,
+    "cgst_rate": 0,
+    "cgst_amount": 0,
+    "sgst_rate": 0,
+    "sgst_amount": 0,
+    "igst_rate": 18,
+    "igst_amount": 36000,
+    "total_tax": 36000,
+    "total_amount": 236000,
+    "irn": null,
+    "payment_terms": "Net 30",
+    "_test_category": "INTERSTATE_SERVICES",
+    "_expected_result": "PASS_WITH_TDS",
+    "_complexity": "MEDIUM",
+    "_notes": "Professional services - TDS @10% u/s 194J applicable"
+  },
+  {
+    "invoice_id": "INV-2024-0004",
+    "invoice_number": "QS/MUM/2425/0042",
+    "invoice_date": "2024-09-25",
+    "vendor": {
+      "name": "Quick Office Supplies",
+      "gstin": "27AABCQ2345M1ZX",
+      "pan": "AABCQ2345M",
+      "address": "Shop 7, Commercial Complex, Bandra West, Mumbai - 400050"
+    },
+    "buyer": {
+      "name": "FinanceGuard Solutions Private Limited",
+      "gstin": "27AABCF9999K1ZX",
+      "address": "Tower A, Mindspace, Goregaon East, Mumbai - 400063"
+    },
+    "line_items": [
+      {
+        "description": "A4 Copier Paper (500 sheets) x 50 reams",
+        "hsn_sac": "48025510",
+        "quantity": 50,
+        "unit": "Reams",
+        "rate": 250,
+        "amount": 12500
+      },
+      {
+        "description": "Spiral Notebooks - 200 pages",
+        "hsn_sac": "48025520",
+        "quantity": 100,
+        "unit": "Pcs",
+        "rate": 45,
+        "amount": 4500
+      }
+    ],
+    "subtotal": 17000,
+    "cgst_rate": 2.5,
+    "cgst_amount": 425,
+    "sgst_rate": 2.5,
+    "sgst_amount": 425,
+    "total_tax": 850,
+    "total_amount": 17850,
+    "irn": null,
+    "_test_category": "COMPOSITION_SCHEME",
+    "_expected_result": "FAIL",
+    "_complexity": "HIGH",
+    "_trap": "Vendor is under composition scheme but has charged GST. Composition dealers CANNOT charge GST. Also, wrong rate applied - A4 paper is 18% since Oct 2022, not 5%."
+  },
+  {
+    "invoice_id": "INV-2024-0005",
+    "invoice_number": "CST/CHN/2024/4455",
+    "invoice_date": "2024-08-15",
+    "vendor": {
+      "name": "Chennai Software Technologies",
+      "gstin": "33AABCC1122P1ZW",
+      "pan": "AABCC1122P",
+      "address": "4th Floor, IT Tower, OMR Road, Chennai - 600096"
+    },
+    "buyer": {
+      "name": "FinanceGuard Solutions Private Limited",
+      "gstin": "27AABCF9999K1ZX",
+      "address": "Tower A, Mindspace, Goregaon East, Mumbai - 400063"
+    },
+    "line_items": [
+      {
+        "description": "Annual Software Maintenance",
+        "hsn_sac": "998316",
+        "quantity": 1,
+        "unit": "Year",
+        "rate": 350000,
+        "amount": 350000
+      }
+    ],
+    "subtotal": 350000,
+    "igst_rate": 18,
+    "igst_amount": 63000,
+    "total_tax": 63000,
+    "total_amount": 413000,
+    "irn": "x9y8z7a6b5c4d3e2f1g0h9i8j7k6l5m4n3o2p1q0r9s8t7u6v5w4x3y2z1",
+    "payment_terms": "Net 45",
+    "_test_category": "SUSPENDED_VENDOR",
+    "_expected_result": "FAIL",
+    "_complexity": "HIGH",
+    "_trap": "Vendor GSTIN was suspended on 2024-08-01. Invoice dated 2024-08-15 is after suspension. Cannot accept."
+  },
+  {
+    "invoice_id": "INV-2024-0006",
+    "invoice_number": "ABC/BLR/24-25/0099",
+    "invoice_date": "2024-10-05",
+    "vendor": {
+      "name": "ABC Contractors Pvt Ltd",
+      "gstin": "29AABCA9876N1ZQ",
+      "pan": "AABCA9876N",
+      "address": "123, Industrial Layout, Whitefield, Bangalore - 560066"
+    },
+    "buyer": {
+      "name": "FinanceGuard Solutions Private Limited",
+      "gstin": "27AABCF9999K1ZX",
+      "address": "Tower A, Mindspace, Goregaon East, Mumbai - 400063"
+    },
+    "line_items": [
+      {
+        "description": "Office renovation - flooring and painting",
+        "hsn_sac": "995411",
+        "quantity": 2500,
+        "unit": "Sq.ft",
+        "rate": 120,
+        "amount": 300000
+      }
+    ],
+    "subtotal": 300000,
+    "igst_rate": 18,
+    "igst_amount": 54000,
+    "total_tax": 54000,
+    "total_amount": 354000,
+    "irn": "p1q2r3s4t5u6v7w8x9y0z1a2b3c4d5e6f7g8h9i0j1k2l3m4n5o6p7q8",
+    "payment_terms": "Net 30",
+    "_test_category": "WRONG_GST_RATE",
+    "_expected_result": "FAIL",
+    "_complexity": "MEDIUM",
+    "_trap": "Construction services are @12% from April 2019, not 18%. Also TDS @2% u/s 194C applicable."
+  }
+]

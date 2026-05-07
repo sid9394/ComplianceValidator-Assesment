@@ -55,8 +55,10 @@ python mock_api/server.py
 **Terminal 2 — run the validator:**
 
 ```bash
-python main.py --input <path> --output <path>
+python main.py --input <path> --output <path> [--batch-size N]
 ```
+
+`--batch-size N` processes N invoices per group then pauses for `BATCH_DELAY_SECONDS`. Useful when testing against free-tier rate limits (e.g. `--batch-size 3` to process three invoices, pause, then continue).
 
 ### Input formats supported
 
@@ -104,7 +106,37 @@ Each invoice produces a JSON file matching this schema:
 }
 ```
 
-`overall_decision` is always one of: `APPROVED` | `REJECTED` | `ESCALATE_TO_HUMAN` | `HOLD_FOR_VERIFICATION`
+`overall_decision` is always exactly one of: `APPROVED` | `REJECTED` | `ESCALATE_TO_HUMAN` | `HOLD_FOR_VERIFICATION`
+
+---
+
+## Check Priorities
+
+Each check carries a priority level that drives the resolver's decision.
+
+| Priority | Checks | Resolver outcome on failure |
+|----------|--------|-----------------------------|
+| **HIGH** | A2, B1, B7, C1, C2, E3 | `REJECTED` — no exceptions, no confidence override |
+| **MEDIUM** | A1, D1, D2 | `ESCALATE_TO_HUMAN` if ambiguous or confidence < 0.70 |
+| **LOW** | E1 | Noted in reasoning; `ESCALATE_TO_HUMAN` only if PO variance is material |
+
+Every check tool returns a `priority` field in its JSON output so the resolver can reference it directly.
+
+---
+
+## Resolver Decision Rules
+
+Rules are evaluated in strict priority order — the first rule that fires determines the decision.
+
+| Rule | Condition | Decision |
+|------|-----------|----------|
+| 0 | `invoice_number`, `vendor_gstin`, or `total_amount` is null/missing | `HOLD_FOR_VERIFICATION` |
+| 1 | Any HIGH priority check failed (A2, B1, B7, C1, C2, E3) | `REJECTED` |
+| 2 | Any check finding contains `REGULATORY CONFLICT` | `ESCALATE_TO_HUMAN` |
+| 3 | Average confidence < 0.70 or any MEDIUM check is ambiguous | `ESCALATE_TO_HUMAN` |
+| 4 | Any check flagged `transition period` with confidence < 0.80 | `ESCALATE_TO_HUMAN` |
+| 5 | All non-skipped checks passed and confidence ≥ 0.70 | `APPROVED` |
+| 6 | Any other combination | Reasoned judgment |
 
 ---
 
@@ -113,6 +145,7 @@ Each invoice produces a JSON file matching this schema:
 ```
 main.py                  Entry point — format detection, batch loop, report writer
 crew.py                  CrewAI pipeline wiring (4 agents, 4 tasks, sequential)
+logger.py                Structured logging with per-invoice helpers and rotating file handler
 tools/check_tools.py     10 compliance check tools attached to the Validator agent
 mock_api/server.py       Local Flask server mocking GSTIN verification API
 config/
@@ -135,6 +168,8 @@ logs/                    Structured run logs
 
 Gemini free tier (flash): ~15 RPM. The pipeline sleeps 20 seconds between invoices.
 Groq free tier: ~30 RPM. The pipeline sleeps 45 seconds between invoices.
+
+**Note on Groq:** Several optimizations were made to reduce Groq API usage — D1/D2 share a single LLM call with result caching, and most tools are deterministic (no LLM calls inside them). Despite these optimizations, Groq's free tier rate limits are still hit when processing larger batches. If you encounter `429 Too Many Requests` errors with Groq, increase `SLEEP_BETWEEN_INVOICES_SECONDS` in `config/config.py` or switch to a paid tier.
 
 To process a large batch quickly, use a paid API tier and set `SLEEP_BETWEEN_INVOICES_SECONDS = 0` in `config/config.py`.
 
@@ -162,6 +197,8 @@ Data quality issues such as lowercase characters or OCR substitutions (e.g., `O`
 Two invoices are considered duplicates if they share the same vendor GSTIN, invoice number, and invoice amount within a 365-day window — as defined in `company_policy.yaml` (`duplicate_window_days: 365`, `duplicate_fields: [vendor_gstin, invoice_number, invoice_amount]`).
 
 A near-duplicate is flagged when the average similarity across those three fields is ≥ 95% (`near_duplicate_threshold: 0.95`). INV-2024-0010 is a known near-duplicate of INV-2024-0001 — same vendor GSTIN, same date, same amount, only the invoice number differs.
+
+Both exact and near-duplicate detections fail A2 and trigger `REJECTED`. The 95% similarity threshold is the discriminator — any invoice clearing it is treated as a duplicate regardless of confidence level.
 
 Duplicate detection runs within the processed batch only. It is not cross-checked against a historical database.
 
@@ -195,7 +232,7 @@ The applicable GST type is determined by comparing the first two digits of the v
 - Vendor state code `27` → intrastate supply → must use CGST + SGST, IGST must be zero
 - Vendor state code other than `27` → interstate supply → must use IGST only, CGST and SGST must be zero
 - Mixing CGST/SGST and IGST on the same invoice is always invalid
-- For intrastate invoices, CGST rate must equal SGST rate
+- For intrastate invoices, CGST rate must equal SGST rate and CGST amount must equal SGST amount (within ±₹1)
 - RCM invoices and foreign vendors (no GSTIN) are excluded from this check
 
 ---
@@ -208,12 +245,9 @@ For every line item: `quantity × rate = amount`. A tolerance of ±₹1 is allow
 
 #### C2 — Subtotal and Total Consistency
 
-Two checks are performed:
+`sum(line_item.amount for all items) = subtotal`
 
-1. `sum(line_item.amount for all items) = subtotal`
-2. `subtotal + total_tax = total_amount`
-
-Both use the same ±₹1 rounding tolerance. This check runs on every invoice regardless of how simple the line items look.
+The ±₹1 rounding tolerance applies. This check runs on every invoice regardless of how simple the line items look.
 
 ---
 
@@ -228,7 +262,10 @@ TDS applicability is determined by the vendor type from `vendor_registry.json`, 
 | IT_SERVICES | 194J |
 | PROFESSIONAL_SERVICES | 194J |
 | CONTRACTOR | 194C |
+| INDIVIDUAL_CONTRACTOR | 194C |
 | TRANSPORT | 194C (GTA exception applies) |
+| COMMISSION_AGENT | 194H |
+| BROKER | 194H |
 | RENT | 194I |
 | GOODS_SUPPLIER | 194Q (threshold-gated) |
 | FOREIGN_VENDOR | 195 |
@@ -262,14 +299,43 @@ The test invoices include a `po_reference` field but no corresponding PO amount.
 The vendor GSTIN is looked up in `vendor_registry.json`. Three outcomes:
 
 - GSTIN present and `status: ACTIVE` → pass
-- GSTIN present but `status: SUSPENDED` or `CANCELLED` → fail (INV-2024-0005, Chennai Software Solutions is a known case)
-- GSTIN not found → escalate for verification, do not auto-reject
+- GSTIN present but `status: SUSPENDED` or `CANCELLED` → fail — `REJECTED` (INV-2024-0005, Chennai Software Solutions is a known case)
+- GSTIN not found in registry → fail — `REJECTED` (E3 is a HIGH priority check; an unregistered vendor cannot be paid)
 
 Additional policy rules from `company_policy.yaml` that apply beyond the basic lookup:
 
 - **First-time vendor** (no prior transaction history): minimum Level 3 approval required before payment
 - **Related-party vendor** (same PAN registered under a different GSTIN, e.g. VND001 and VND011): Level 4 approval required, must be flagged in the report
 - **Foreign vendor**: additional documentation (Form 10F, tax residency certificate) required before TDS rate reduction can be applied
+
+---
+
+## Critical Constraints
+
+### Constraint 1 — Conflicting Regulations
+
+Some invoices trigger both a GST rule and a TDS rule that are in tension (e.g., an RCM invoice where B7 is skipped but D1 determines TDS still applies). When this occurs both check findings include the text `REGULATORY CONFLICT` and the resolver escalates to `ESCALATE_TO_HUMAN` regardless of confidence.
+
+### Constraint 2 — Data Quality (OCR errors, missing fields)
+
+Invoice data may contain OCR artefacts from scanned documents. The system handles this per check:
+- **A1**: OCR normalisation applied to invoice number before pattern matching
+- **A2**: OCR normalisation applied to vendor GSTIN before building the compound key
+- **B1**: OCR correction applied; GSTIN shorter than 15 characters after correction triggers `HOLD_FOR_VERIFICATION`
+- **E3**: Same OCR correction applied before registry lookup
+- Missing critical fields (`invoice_number`, `vendor_gstin`, `total_amount`) always trigger `HOLD_FOR_VERIFICATION` before any other rule.
+
+### Constraint 3 — Temporal Validity
+
+GST and TDS rules are applied based on `invoice_date`, not the processing date. For B7, invoices dated in March or April (GST rate transition period) are flagged with confidence 0.70. For D1/D2, TDS threshold rules and section assignments use the financial year of the invoice date, with FY boundary dates (31 March, 1 April) flagged for human review.
+
+### Constraint 4 — Stateful Validation
+
+A2 duplicate detection is stateful across the batch: the `seen_invoices_json` list accumulates across all invoices processed in a single run. The compound key is `VENDOR_GSTIN::INVOICE_NUMBER::AMOUNT::DATE`. The seen list is never reset mid-batch.
+
+### Constraint 5 — Historical Decisions Not Used
+
+`data/historical_decisions.jsonl` is present but never loaded or referenced. The challenge specification states 15% of entries are incorrect. All validation logic derives exclusively from `tds_sections.json`, `gst_rates_schedule.csv`, `company_policy.yaml`, and `vendor_registry.json`.
 
 ---
 

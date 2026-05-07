@@ -1,0 +1,186 @@
+{
+  "invoice_id": "INV-2024-0005",
+  "overall_decision": "REJECTED",
+  "compliance_score": 68,
+  "confidence": 0.979,
+  "requires_human_review": true,
+  "validation_results": {
+    "category_a_authenticity": {
+      "score": 2,
+      "max_score": 2,
+      "checks": {
+        "A1": {
+          "passed": true,
+          "confidence": 0.9,
+          "finding": "Invoice number 'CST/CHN/2024/4455' format valid"
+        },
+        "A2": {
+          "passed": true,
+          "confidence": 1.0,
+          "finding": "No duplicate found"
+        }
+      }
+    },
+    "category_b_gst": {
+      "score": 1,
+      "max_score": 2,
+      "checks": {
+        "B1": {
+          "passed": false,
+          "confidence": 0.95,
+          "finding": "GSTIN '33AABCC1122P1ZW' is FAILED - status: SUSPENDED"
+        },
+        "B7": {
+          "passed": true,
+          "confidence": 0.97,
+          "finding": "Inter-state: IGST at 18.0% applied correctly"
+        }
+      }
+    },
+    "category_c_arithmetic": {
+      "score": 2,
+      "max_score": 2,
+      "checks": {
+        "C1": {
+          "passed": true,
+          "confidence": 1.0,
+          "finding": "All 1 line items correct"
+        },
+        "C2": {
+          "passed": true,
+          "confidence": 1.0,
+          "finding": "Subtotal matches: calculated Rs 350,000.00 vs stated Rs 350,000.00"
+        }
+      }
+    },
+    "category_d_tds": {
+      "score": 2,
+      "max_score": 2,
+      "checks": {
+        "D1": {
+          "passed": true,
+          "confidence": 1.0,
+          "finding": "TDS APPLICABLE | Section: 194J | The service 'Annual Software Maintenance' is classified as a technical service under section 194J, and the invoice subtotal exceeds the threshold."
+        },
+        "D2": {
+          "passed": true,
+          "confidence": 1.0,
+          "finding": "Section 194J | Rate 2.0% | TDS Rs 7,000.00 | TDS is on subtotal (excluding GST) as per general rule and 194J's specific rule. | threshold_computation | tds_on_gst_clarity | Vendor: N/A | Service: technical"
+        }
+      }
+    },
+    "category_e_policy": {
+      "score": 0,
+      "max_score": 1,
+      "checks": {
+        "E1": {
+          "passed": false,
+          "confidence": 1.0,
+          "finding": "No PO amount on invoice - E1 skipped"
+        },
+        "E3": {
+          "passed": false,
+          "confidence": 0.99,
+          "finding": "Vendor 'Chennai Software Technologies' status is 'SUSPENDED'"
+        }
+      }
+    }
+  },
+  "tds_summary": {
+    "tds_applicable": true,
+    "tds_section": "194J",
+    "tds_rate": 2.0,
+    "tds_amount": 7000.0,
+    "special_rules_applied": [
+      "threshold_computation",
+      "tds_on_gst_clarity"
+    ]
+  },
+  "gst_summary": {
+    "gstin_valid": false,
+    "gstin_status": "SUSPENDED",
+    "gst_type": "inter-state",
+    "cgst_rate": 0.0,
+    "sgst_rate": 0.0,
+    "igst_rate": 18.0
+  },
+  "audit_trail": [
+    {
+      "timestamp": "2024-08-15T10:00:00Z",
+      "check": "A1",
+      "passed": true,
+      "finding": "Invoice number 'CST/CHN/2024/4455' format valid",
+      "confidence": 0.9
+    },
+    {
+      "timestamp": "2024-08-15T10:00:00Z",
+      "check": "A2",
+      "passed": true,
+      "finding": "No duplicate found",
+      "confidence": 1.0
+    },
+    {
+      "timestamp": "2024-08-15T10:00:00Z",
+      "check": "B1",
+      "passed": false,
+      "finding": "GSTIN '33AABCC1122P1ZW' is FAILED - status: SUSPENDED",
+      "confidence": 0.95
+    },
+    {
+      "timestamp": "2024-08-15T10:00:00Z",
+      "check": "B7",
+      "passed": true,
+      "finding": "Inter-state: IGST at 18.0% applied correctly",
+      "confidence": 0.97
+    },
+    {
+      "timestamp": "2024-08-15T10:00:00Z",
+      "check": "C1",
+      "passed": true,
+      "finding": "All 1 line items correct",
+      "confidence": 1.0
+    },
+    {
+      "timestamp": "2024-08-15T10:00:00Z",
+      "check": "C2",
+      "passed": true,
+      "finding": "Subtotal matches: calculated Rs 350,000.00 vs stated Rs 350,000.00",
+      "confidence": 1.0
+    },
+    {
+      "timestamp": "2024-08-15T10:00:00Z",
+      "check": "D1",
+      "passed": true,
+      "finding": "TDS APPLICABLE | Section: 194J | The service 'Annual Software Maintenance' is classified as a technical service under section 194J, and the invoice subtotal exceeds the threshold.",
+      "confidence": 1.0
+    },
+    {
+      "timestamp": "2024-08-15T10:00:00Z",
+      "check": "D2",
+      "passed": true,
+      "finding": "Section 194J | Rate 2.0% | TDS Rs 7,000.00 | TDS is on subtotal (excluding GST) as per general rule and 194J's specific rule. | threshold_computation | tds_on_gst_clarity | Vendor: N/A | Service: technical",
+      "confidence": 1.0
+    },
+    {
+      "timestamp": "2024-08-15T10:00:00Z",
+      "check": "E1",
+      "passed": false,
+      "finding": "No PO amount on invoice - E1 skipped",
+      "confidence": 1.0
+    },
+    {
+      "timestamp": "2024-08-15T10:00:00Z",
+      "check": "E3",
+      "passed": false,
+      "finding": "Vendor 'Chennai Software Technologies' status is 'SUSPENDED'",
+      "confidence": 0.99
+    },
+    {
+      "timestamp": "2024-08-15T10:05:00Z",
+      "check": "Resolver",
+      "passed": false,
+      "finding": "The final decision is REJECTED because Rule 1 (HIGH priority check failure) was triggered. Check B1, a HIGH priority check, failed with the finding 'GSTIN '33AABCC1122P1ZW' is FAILED - status: SUSPENDED'. Concurrently, check E3, also a HIGH priority check, failed with the finding 'Vendor 'Chennai Software Technologies' status is 'SUSPENDED''. Both failures indicate that the vendor's GSTIN and overall status are suspended, which constitutes a hard violation and mandates rejection of the invoice.",
+      "confidence": 0.979
+    }
+  ]
+}

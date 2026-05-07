@@ -1,0 +1,174 @@
+[
+  {
+    "invoice_id": "INV-2024-0018",
+    "invoice_number": "CREDIT-TS-2024-001",
+    "invoice_date": "2024-10-18",
+    "document_type": "CREDIT_NOTE",
+    "original_invoice_ref": "TS/MH/2024/001234",
+    "original_invoice_date": "2024-09-15",
+    "vendor": {
+      "name": "TechSoft Solutions Private Limited",
+      "gstin": "27AABCT1234F1ZP",
+      "pan": "AABCT1234F",
+      "address": "Unit 405, Tech Park, Andheri East, Mumbai - 400069"
+    },
+    "buyer": {
+      "name": "FinanceGuard Solutions Private Limited",
+      "gstin": "27AABCF9999K1ZX"
+    },
+    "line_items": [
+      {
+        "description": "Discount on CRM Module project",
+        "hsn_sac": "998315",
+        "quantity": 1,
+        "rate": -50000,
+        "amount": -50000
+      }
+    ],
+    "subtotal": -50000,
+    "cgst_rate": 9,
+    "cgst_amount": -4500,
+    "sgst_rate": 9,
+    "sgst_amount": -4500,
+    "total_tax": -9000,
+    "total_amount": -59000,
+    "_test_category": "CREDIT_NOTE",
+    "_expected_result": "PASS_LINKED",
+    "_complexity": "MEDIUM",
+    "_notes": "Credit note must be linked to original invoice. Check within 30 days of original. Adjust TDS liability."
+  },
+  {
+    "invoice_id": "INV-2024-0019",
+    "invoice_number": "INV/EXP/2024/0055",
+    "invoice_date": "2024-10-10",
+    "vendor": {
+      "name": "FinanceGuard Solutions Private Limited",
+      "gstin": "27AABCF9999K1ZX",
+      "role": "EXPORTER"
+    },
+    "buyer": {
+      "name": "Global Finance Corp",
+      "country": "Singapore",
+      "address": "100 Raffles Place, Singapore 048618"
+    },
+    "line_items": [
+      {
+        "description": "Software Development Services - Export",
+        "hsn_sac": "998315",
+        "quantity": 1,
+        "rate": 50000,
+        "currency": "USD",
+        "amount": 50000
+      }
+    ],
+    "subtotal_usd": 50000,
+    "exchange_rate": 83.5,
+    "subtotal_inr": 4175000,
+    "igst_rate": 0,
+    "igst_amount": 0,
+    "total_tax": 0,
+    "total_amount_inr": 4175000,
+    "export_type": "WITH_PAYMENT",
+    "lut_number": "AD270824000123F",
+    "_test_category": "EXPORT_INVOICE",
+    "_expected_result": "NOT_APPLICABLE",
+    "_complexity": "LOW",
+    "_notes": "This is an OUTGOING invoice (sale), not incoming (purchase). Should be rejected from AP processing."
+  },
+  {
+    "invoice_id": "INV-2024-0847",
+    "invoice_number": "GL/SPECIAL/2024/847",
+    "invoice_date": "2024-09-01",
+    "vendor": {
+      "name": "Global Logistics & Transport Co.",
+      "gstin": "07AABCG5678H1Z9",
+      "pan": "AABCG5678H",
+      "address": "Plot 23, Industrial Area, Okhla Phase-II, New Delhi"
+    },
+    "buyer": {
+      "name": "FinanceGuard Solutions Private Limited",
+      "gstin": "27AABCF9999K1ZX"
+    },
+    "line_items": [
+      {
+        "description": "Multi-modal logistics - Rail + Road",
+        "hsn_sac": "996511",
+        "quantity": 1,
+        "unit": "Shipment",
+        "rate": 250000,
+        "amount": 250000,
+        "breakup": {
+          "rail_component": 150000,
+          "road_component": 100000
+        }
+      },
+      {
+        "description": "Warehousing charges - 15 days",
+        "hsn_sac": "996721",
+        "quantity": 15,
+        "unit": "Days",
+        "rate": 2000,
+        "amount": 30000
+      },
+      {
+        "description": "Packing and handling",
+        "hsn_sac": "998599",
+        "quantity": 1,
+        "unit": "Job",
+        "rate": 20000,
+        "amount": 20000
+      }
+    ],
+    "subtotal": 300000,
+    "igst_rate": 18,
+    "igst_amount": 54000,
+    "total_tax": 54000,
+    "total_amount": 354000,
+    "eway_bill": "331098765432",
+    "_test_category": "COMPOSITE_SUPPLY_NIGHTMARE",
+    "_expected_result": "COMPLEX_ANALYSIS_REQUIRED",
+    "_complexity": "EXTREME",
+    "_trap": "FAMOUS EDGE CASE: This is a composite supply with principal supply being GTA. Multiple issues: 1) Rail @5%, Road may be RCM or 5%, Warehousing @18%, Packing @18%. 2) Is this composite (single rate based on principal supply) or mixed (separate rates)? 3) GTA has lower deduction cert - does it cover all services? 4) TDS section: 194C for transport but what about warehousing? This invoice requires significant human judgment and reasoning.",
+    "_hints": [
+      "Principal supply test for composite supply",
+      "GTA forward charge vs RCM determination",
+      "TDS on composite services"
+    ]
+  },
+  {
+    "invoice_id": "INV-2024-0020",
+    "invoice_number": "QS/MUM/2425/0041",
+    "invoice_date": "2024-09-20",
+    "vendor": {
+      "name": "Quick Office Supplies",
+      "gstin": "27AABCQ2345M1ZX",
+      "pan": "AABCQ2345M",
+      "address": "Shop 7, Commercial Complex, Bandra West, Mumbai - 400050"
+    },
+    "buyer": {
+      "name": "FinanceGuard Solutions Private Limited",
+      "gstin": "27AABCF9999K1ZX"
+    },
+    "line_items": [
+      {
+        "description": "Office furniture - Executive chairs",
+        "hsn_sac": "94032000",
+        "quantity": 20,
+        "unit": "Nos",
+        "rate": 15000,
+        "amount": 300000
+      }
+    ],
+    "subtotal": 300000,
+    "cgst_rate": 9,
+    "cgst_amount": 27000,
+    "sgst_rate": 9,
+    "sgst_amount": 27000,
+    "total_tax": 54000,
+    "total_amount": 354000,
+    "_test_category": "COMPOSITION_HIGH_VALUE",
+    "_expected_result": "FAIL",
+    "_complexity": "MEDIUM",
+    "_trap": "Vendor under composition scheme - turnover limit is typically 1.5Cr (goods). High value transaction should trigger verification. Also composition dealers cannot charge GST OR do inter-state sales."
+  }
+]

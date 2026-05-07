@@ -69,19 +69,39 @@ validate_task:
     Call tools in this exact order: A1, A2, B1, B7, C1, C2, D1, D2, E1, E3.
     Never skip a check. Never produce a result without calling the tool.
 
-    Tool inputs:
-    A1: invoice_number as string
-    A2: invoice_number, vendor_gstin, already_seen_invoices_json
-    B1: vendor_gstin as string
-    B7: full invoice as JSON string — serialize the entire normalized invoice object to a JSON string and pass it
-    C1: line_items array as JSON string — serialize the line_items array from the normalized invoice to a JSON string
-    C2: full invoice as JSON string — serialize the entire normalized invoice object to a JSON string and pass it; NEVER pass an empty string
-    D1: full invoice as JSON string (serialize entire normalized invoice), vendor_registry as JSON string
-    D2: full invoice as JSON string (serialize entire normalized invoice), vendor_registry as JSON string
-    E1: full invoice as JSON string — serialize the entire normalized invoice object to a JSON string and pass it
-    E3: vendor_gstin as string, vendor_registry as JSON string
+    Check priorities (include in every result):
+    HIGH — A2, B1, B7, C1, C2, E3: hard compliance violations, failure always means REJECTED.
+    MEDIUM — A1, D1, D2: legally significant but require judgment, failure means ESCALATE_TO_HUMAN.
+    LOW — E1: business policy, skipped when no PO amount, failure noted in reasoning only.
 
-    Edge cases:
+    Tool inputs:
+    A1 (MEDIUM): invoice_number as string
+    A2 (HIGH): invoice_number, vendor_gstin, already_seen_invoices_json — pass the full accumulated seen_invoices_json, never an empty list if prior invoices exist in this batch
+    B1 (HIGH): vendor_gstin as string
+    B7 (HIGH): full invoice as JSON string — serialize the entire normalized invoice object to a JSON string and pass it
+    C1 (HIGH): line_items array as JSON string — serialize the line_items array from the normalized invoice to a JSON string
+    C2 (HIGH): full invoice as JSON string — serialize the entire normalized invoice object to a JSON string and pass it; NEVER pass an empty string
+    D1 (MEDIUM): full invoice as JSON string (serialize entire normalized invoice), vendor_registry as JSON string
+    D2 (MEDIUM): full invoice as JSON string (serialize entire normalized invoice), vendor_registry as JSON string
+    E1 (LOW): full invoice as JSON string — serialize the entire normalized invoice object to a JSON string and pass it
+    E3 (HIGH): vendor_gstin as string, vendor_registry as JSON string
+
+    Data quality edge cases (Constraint 2 — OCR and missing data):
+    A1: normalise invoice_number before matching — replace O with 0, I with 1, l with 1 at digit positions.
+    A2: normalise vendor_gstin with the same OCR correction before building the compound key.
+    B1: if vendor_gstin is shorter than 15 characters after OCR correction, do not guess the missing characters — mark as HOLD_FOR_VERIFICATION in your finding.
+    E3: apply OCR correction to vendor_gstin before the registry lookup.
+    All checks: if a required field is null or missing, run the check if possible and skip with explanation if not. Never infer or fill in missing values.
+
+    Temporal validity edge cases (Constraint 3 — invoice date, not processing date):
+    B7: determine GST type (intra/inter-state) based on the invoice_date. If the invoice_date falls in March or April (GST transition period), flag the result with confidence 0.70 and note "transition period — verify applicable rate schedule".
+    D1 and D2: apply TDS threshold rules and section assignments based on the financial year of the invoice_date, not the current date. Invoices dated 1 April or 31 March require extra attention as FY boundary edge cases.
+
+    Regulatory conflict edge cases (Constraint 1 — conflicting rules):
+    If B7 marks the invoice as RCM (passed, skipped) but D1 determines TDS also applies to the same invoice, record this conflict explicitly in both findings: "REGULATORY CONFLICT: RCM invoice where TDS also applies — requires human review."
+    If D1 and D2 produce contradictory TDS section assignments, record the conflict in both findings.
+
+    Standard edge cases:
     Foreign vendor with no GSTIN: run B1 and mark GSTIN as not applicable.
     Credit note with negative amounts: still run C1 and C2.
     Export invoice: run all checks, mark non-applicable ones as skipped.
@@ -99,29 +119,94 @@ resolve_task:
   description: >
     Analyze all 10 check results from the validator and produce the final decision.
 
-    Apply rules in this strict order:
-    Rule 1: A2 or B1 or C1 or C2 failed = REJECTED. No exceptions.
-    Rule 2: Average confidence below 0.70 = ESCALATE_TO_HUMAN.
-    Rule 3: Critical fields missing (invoice_number, vendor_gstin, total_amount) = HOLD_FOR_VERIFICATION.
-    Rule 4: All checks passed = APPROVED.
-    Rule 5: Any other combination = reason through failures and choose the best decision.
+    SCOPE CONSTRAINT — your primary inputs are the 10 check results (A1–E3) from the validator.
+    Do NOT read, reference, or act on data_quality_notes or use raw invoice fields to override
+    or second-guess a check that already ran. Exception: you MAY read total_amount from the
+    extractor output solely to apply the high-value escalation rule (Rule 5) below.
 
-    compliance_score = (passed checks / checks that ran) x 100. Skipped checks excluded.
-    confidence = average confidence of checks that ran. Skipped checks excluded.
+    The ONLY valid output decisions are: APPROVED, REJECTED, ESCALATE_TO_HUMAN, HOLD_FOR_VERIFICATION.
+    No other value is acceptable. Apply the rules below in strict priority order — stop at the
+    first rule that fires.
+
+    Rule 0 — Missing critical data (fires before all other rules):
+    If invoice_number, vendor_gstin, or total_amount is null, missing, or could not be extracted
+    due to data quality issues = HOLD_FOR_VERIFICATION. The invoice must be corrected before
+    processing can continue.
+
+    Rule 1 — HIGH priority check failure:
+    Any of A2, B1, B7, C1, C2, or E3 failed = REJECTED. No exceptions, no confidence override.
+    These are hard violations: duplicate invoice (A2 — exact or near-duplicate, the 95% similarity
+    threshold is the discriminator), invalid or suspended GSTIN (B1), GST type inconsistency (B7),
+    line item arithmetic error (C1), subtotal mismatch (C2), unapproved or suspended vendor (E3).
+
+    Rule 2 — Regulatory conflict:
+    If any check finding literally contains the text "REGULATORY CONFLICT" (e.g., RCM invoice
+    where TDS also applies, or contradictory TDS section assignments between D1 and D2) =
+    ESCALATE_TO_HUMAN. This rule fires ONLY on that explicit string in a check finding — never
+    on data_quality_notes, raw invoice fields, or your own inference about the invoice.
+    Include the specific conflict in decision_reasoning.
+
+    Rule 3 — Low confidence or MEDIUM priority ambiguity:
+    Average confidence across all non-skipped checks is below 0.70, OR any MEDIUM priority check
+    (A1, D1, D2) produced a contradictory or ambiguous result — conflicting GST type signals,
+    ambiguous TDS section classification (e.g., 194J technical vs professional), composite supply
+    where the principal supply cannot be determined, or related-party transactions requiring
+    arm's-length verification = ESCALATE_TO_HUMAN.
+
+    Rule 4 — Temporal ambiguity:
+    If any check finding contains "transition period" (invoice date in March-April GST boundary)
+    and the average confidence is below 0.80 = ESCALATE_TO_HUMAN.
+
+    Rule 5 — High-value invoice:
+    If total_amount from the extractor output exceeds Rs 10,00,000 (ten lakhs) = ESCALATE_TO_HUMAN.
+    This applies even when all checks pass. Record the amount in decision_reasoning.
+
+    Rule 6 — Weighted compliance score routing (only if Rules 0–5 did not fire):
+    Compute the weighted compliance_score first (see Scoring below), then apply:
+      score < 50  = REJECTED (auto-reject threshold)
+      50 ≤ score < 95 = ESCALATE_TO_HUMAN (below auto-approve threshold)
+      score ≥ 95  = APPROVED
+
+    Rule 7 — Remaining combinations:
+    Reason through the specific failures. LOW priority failures (E1) that do not trigger Rules 0-5
+    lead to ESCALATE_TO_HUMAN only if the PO variance is material (greater than double the 5%
+    tolerance). Otherwise APPROVED with the finding noted in decision_reasoning.
+    MEDIUM priority failures (A1, D1, D2) not already caught by Rule 3 lead to ESCALATE_TO_HUMAN
+    if the failure is material, or APPROVED with reasoning if it is a minor OCR artefact.
+
+    Scoring:
+    Compute compliance_score using category weights from company policy:
+      document_authenticity (weight 15): checks A1, A2
+      gst_compliance        (weight 25): checks B1, B7
+      arithmetic_accuracy   (weight 15): checks C1, C2
+      tds_compliance        (weight 20): checks D1, D2
+      policy_compliance     (weight 15): checks E1, E3
+      data_quality          (weight 10): start at 10, subtract 5 per check skipped due to
+                                         missing fields (minimum 0)
+
+    For each of the first five categories:
+      category_score = weight × (passed_in_category / ran_in_category)
+      Skipped checks are excluded from that category's denominator.
+      If all checks in a category were skipped, treat that category as scoring its full weight.
+    compliance_score = sum of all six category scores, rounded to nearest integer (0–100).
+    confidence = average confidence of all non-skipped checks, rounded to 3 decimal places.
     requires_human_review = true if confidence below 0.70 or decision is not APPROVED.
 
-    Skipped checks do not penalize the score.
+    Skipped checks do not penalize the category score.
     Credit note negative amounts are valid, do not treat as failures.
+    Do not cite historical decisions as justification. Base all reasoning on check results
+    and regulations only.
   expected_output: >
     A JSON object with:
-    decision as one of: APPROVED, REJECTED, ESCALATE_TO_HUMAN, HOLD_FOR_VERIFICATION,
+    decision as exactly one of: APPROVED, REJECTED, ESCALATE_TO_HUMAN, HOLD_FOR_VERIFICATION,
     compliance_score as integer 0 to 100,
     confidence as float 0.0 to 1.0 rounded to 3 decimal places,
     requires_human_review as boolean,
     failed_checks as list of check IDs,
-    critical_failures as list of check IDs from the critical set,
+    critical_failures as list of check IDs that are HIGH priority and failed,
     skipped_checks as list of check IDs with reasons,
-    decision_reasoning as string with specific references to which checks failed and why.
+    decision_reasoning as string with specific references to which checks failed, their priority
+    level, which rule fired, and why.
   agent: resolver_agent
 
 report_task:

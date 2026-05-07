@@ -1,0 +1,183 @@
+{
+  "invoice_id": "INV-2024-0003",
+  "overall_decision": "APPROVED",
+  "compliance_score": 100,
+  "confidence": 0.98,
+  "requires_human_review": false,
+  "validation_results": {
+    "category_a_authenticity": {
+      "score": 2,
+      "max_score": 2,
+      "checks": {
+        "A1": {
+          "passed": true,
+          "confidence": 0.9,
+          "finding": "Invoice number 'SC/NOI/2024/789' format valid"
+        },
+        "A2": {
+          "passed": true,
+          "confidence": 1.0,
+          "finding": "No duplicate found"
+        }
+      }
+    },
+    "category_b_gst": {
+      "score": 2,
+      "max_score": 2,
+      "checks": {
+        "B1": {
+          "passed": true,
+          "confidence": 0.95,
+          "finding": "GSTIN '09BQUPS7890K1ZJ' is valid, status: ACTIVE"
+        },
+        "B7": {
+          "passed": true,
+          "confidence": 0.97,
+          "finding": "Inter-state: IGST at 18.0% applied correctly"
+        }
+      }
+    },
+    "category_c_arithmetic": {
+      "score": 2,
+      "max_score": 2,
+      "checks": {
+        "C1": {
+          "passed": true,
+          "confidence": 1.0,
+          "finding": "All 1 line items correct"
+        },
+        "C2": {
+          "passed": true,
+          "confidence": 1.0,
+          "finding": "Subtotal matches: calculated Rs 200,000.00 vs stated Rs 200,000.00"
+        }
+      }
+    },
+    "category_d_tds": {
+      "score": 2,
+      "max_score": 2,
+      "checks": {
+        "D1": {
+          "passed": true,
+          "confidence": 1.0,
+          "finding": "TDS APPLICABLE | Section: 194J | The vendor provides professional services under section 194J, and the invoice amount exceeds the threshold."
+        },
+        "D2": {
+          "passed": true,
+          "confidence": 1.0,
+          "finding": "Section 194J | Rate 10.0% | TDS Rs 20,000.00 | TDS is calculated on the subtotal excluding GST as per general rule for sections other than 194I. | Vendor: N/A | Service: professional"
+        }
+      }
+    },
+    "category_e_policy": {
+      "score": 1,
+      "max_score": 1,
+      "checks": {
+        "E1": {
+          "passed": true,
+          "confidence": 1.0,
+          "finding": "No PO amount on invoice - E1 skipped"
+        },
+        "E3": {
+          "passed": true,
+          "confidence": 1.0,
+          "finding": "Vendor 'Sharma Consulting & Advisory Services' is approved and ACTIVE"
+        }
+      }
+    }
+  },
+  "tds_summary": {
+    "tds_applicable": true,
+    "tds_section": "194J",
+    "tds_rate": 10.0,
+    "tds_amount": 20000.0,
+    "special_rules_applied": []
+  },
+  "gst_summary": {
+    "gstin_valid": true,
+    "gstin_status": "ACTIVE",
+    "gst_type": "inter-state",
+    "cgst_rate": 0.0,
+    "sgst_rate": 0.0,
+    "igst_rate": 18.0
+  },
+  "audit_trail": [
+    {
+      "timestamp": "2024-10-01T10:00:00.000Z",
+      "check": "A1",
+      "passed": true,
+      "finding": "Invoice number 'SC/NOI/2024/789' format valid",
+      "confidence": 0.9
+    },
+    {
+      "timestamp": "2024-10-01T10:00:00.100Z",
+      "check": "A2",
+      "passed": true,
+      "finding": "No duplicate found",
+      "confidence": 1.0
+    },
+    {
+      "timestamp": "2024-10-01T10:00:00.200Z",
+      "check": "B1",
+      "passed": true,
+      "finding": "GSTIN '09BQUPS7890K1ZJ' is valid, status: ACTIVE",
+      "confidence": 0.95
+    },
+    {
+      "timestamp": "2024-10-01T10:00:00.300Z",
+      "check": "B7",
+      "passed": true,
+      "finding": "Inter-state: IGST at 18.0% applied correctly",
+      "confidence": 0.97
+    },
+    {
+      "timestamp": "2024-10-01T10:00:00.400Z",
+      "check": "C1",
+      "passed": true,
+      "finding": "All 1 line items correct",
+      "confidence": 1.0
+    },
+    {
+      "timestamp": "2024-10-01T10:00:00.500Z",
+      "check": "C2",
+      "passed": true,
+      "finding": "Subtotal matches: calculated Rs 200,000.00 vs stated Rs 200,000.00",
+      "confidence": 1.0
+    },
+    {
+      "timestamp": "2024-10-01T10:00:00.600Z",
+      "check": "D1",
+      "passed": true,
+      "finding": "TDS APPLICABLE | Section: 194J | The vendor provides professional services under section 194J, and the invoice amount exceeds the threshold.",
+      "confidence": 1.0
+    },
+    {
+      "timestamp": "2024-10-01T10:00:00.700Z",
+      "check": "D2",
+      "passed": true,
+      "finding": "Section 194J | Rate 10.0% | TDS Rs 20,000.00 | TDS is calculated on the subtotal excluding GST as per general rule for sections other than 194I. | Vendor: N/A | Service: professional",
+      "confidence": 1.0
+    },
+    {
+      "timestamp": "2024-10-01T10:00:00.800Z",
+      "check": "E1",
+      "passed": true,
+      "finding": "No PO amount on invoice - E1 skipped",
+      "confidence": 1.0
+    },
+    {
+      "timestamp": "2024-10-01T10:00:00.900Z",
+      "check": "E3",
+      "passed": true,
+      "finding": "Vendor 'Sharma Consulting & Advisory Services' is approved and ACTIVE",
+      "confidence": 1.0
+    },
+    {
+      "timestamp": "2024-10-01T10:00:01.000Z",
+      "check": "RESOLVER_DECISION",
+      "passed": true,
+      "finding": "All critical fields are present (Rule 0). No HIGH priority checks (A2, B1, B7, C1, C2, E3) failed (Rule 1). No regulatory conflicts were explicitly found in check findings (Rule 2). The average confidence across all non-skipped checks is 0.980, which is above the 0.70 threshold, and no MEDIUM priority checks (A1, D1, D2) presented ambiguous results (Rule 3). No temporal ambiguity was detected (Rule 4). The total_amount of Rs 236,000 does not exceed the high-value invoice threshold of Rs 10,00,000 (Rule 5). The calculated weighted compliance score is 100, which meets the auto-approve threshold (Rule 6). All applicable checks passed, leading to an APPROVED decision.",
+      "confidence": 0.98
+    }
+  ]
+}
